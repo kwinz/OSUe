@@ -9,12 +9,12 @@ OBJECTS = ispalindrom.o
 all: ispalindrom
 
 ispalindrom: $(OBJECTS)
-    $(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
 
 %.o: %.c
-    $(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-ispalindrom.o ispalindrom.c ispalindrom.h 
+ispalindrom.o: ispalindrom.c ispalindrom.h 
 
 clean:
-    rm -rf *.o ispalindrom
+	rm -rf *.o ispalindrom

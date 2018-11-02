@@ -9,35 +9,54 @@
 #include <unistd.h>
 
 int main(int argc, char *argv[]) {
-  // strerror(errno)
-  // fprintf(stderr, "[%s] ERROR errmsg: \r\n", argv[0]);
 
-  const char *optstring = "sio:";
-  int c;
-
+  // parse arguments
   char *outfile_arg = NULL;
   int ignorewhitespace_count = 0, ignorecase_count = 0, o_count = 0;
+  {
+    const char *optstring = "sio:";
+    int c;
 
-  // getopt returns -1 if there is no more character
-  // Or it returns '?' in case of unknown option or missing option argument
-  while ((c = getopt(argc, argv, optstring)) != -1) {
-    switch (c) {
-    case 's': {
-      ++ignorewhitespace_count;
-    } break;
-    case 'i': {
-      ++ignorecase_count;
-    } break;
-    case 'o': {
-      ++o_count;
-      outfile_arg = optarg;
-    } break;
-    case '?': {
-      assert(0 && "olol");
-    } break;
-    default:
-      assert(0 && "[%s] We should not reach this if the optstring is valid");
+    // getopt returns -1 if there is no more character
+    // Or it returns '?' in case of unknown option or missing option argument
+    while ((c = getopt(argc, argv, optstring)) != -1) {
+      switch (c) {
+      case 's': {
+        ++ignorewhitespace_count;
+      } break;
+      case 'i': {
+        ++ignorecase_count;
+      } break;
+      case 'o': {
+        ++o_count;
+        outfile_arg = optarg;
+      } break;
+      case '?': {
+        fprintf(stderr, "[%s] ERROR unknown option or missing argument \n", argv[0]);
+        exit(EXIT_FAILURE);
+      } break;
+      default:
+        assert(0 && "[%s] We should never reach this if the optstring is valid");
+      }
     }
+
+    if (ignorewhitespace_count > 1) {
+      fprintf(stderr, "[%s] ERROR Provide at most one '-s' argument \n", argv[0]);
+      exit(EXIT_FAILURE);
+    }
+
+    if (ignorecase_count > 1) {
+      fprintf(stderr, "[%s] ERROR Provide at most one '-i' argument \n", argv[0]);
+      exit(EXIT_FAILURE);
+    }
+
+    if (o_count > 1) {
+      fprintf(stderr, "[%s] ERROR Provide at most one '-o' argument \n", argv[0]);
+      exit(EXIT_FAILURE);
+    }
+
+    // strerror(errno)
+    // fprintf(stderr, "[%s] ERROR errmsg: \r\n", argv[0]);
   }
 
   const int number_of_file_args = argc - optind;
@@ -98,10 +117,35 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
   int j = strlen(c_string) - 1;
 
   while (i < j) {
-    if (c_string[i] != c_string[j]) {
-      return 0;
+    // printf("first: %c,", c_string[i]);
+    // printf(" second: %c\n", c_string[j]);
+    if (ignore_whitespace) {
+      while (c_string[i] == ' ') {
+        ++i;
+        if (i > j) {
+          return 1;
+        }
+      }
+
+      while (c_string[j] == ' ') {
+        --j;
+        if (i > j) {
+          return 1;
+        }
+      }
     }
-    --i;
+
+    if (ignore_case) {
+      if (tolower(c_string[i]) != tolower(c_string[j])) {
+        return 0;
+      }
+    } else {
+      if (c_string[i] != c_string[j]) {
+        return 0;
+      }
+    }
+
+    ++i;
     --j;
   }
   return 1;

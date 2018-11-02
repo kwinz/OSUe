@@ -16,17 +16,17 @@ int main(int argc, char *argv[]) {
   int c;
 
   char *outfile_arg = NULL;
-  int s_count = 0, i_count = 0, o_count = 0;
+  int ignorewhitespace_count = 0, ignorecase_count = 0, o_count = 0;
 
   // getopt returns -1 if there is no more character
   // Or it returns '?' in case of unknown option or missing option argument
   while ((c = getopt(argc, argv, optstring)) != -1) {
     switch (c) {
     case 's': {
-      ++s_count;
+      ++ignorewhitespace_count;
     } break;
     case 'i': {
-      ++i_count;
+      ++ignorecase_count;
     } break;
     case 'o': {
       ++o_count;
@@ -63,9 +63,19 @@ int main(int argc, char *argv[]) {
 
   // getline() returns -1 on failure to read a line (including EOF).
   ssize_t characters_read;
-  while ((characters_read = getline(&line, &linebuffer_size, input_file)) !=
-         -1) {
-    puts(line);
+  while ((characters_read = getline(&line, &linebuffer_size, input_file)) != -1) {
+    // remove tailing newline (which is also the first occurance of '\n' because
+    // we read line by line)
+    {
+      char *pos = strchr(line, '\n');
+      *pos = '\0';
+    }
+
+    // check if string is palindrome and print the result
+    {
+      const uint8_t is_palindrom = isPalindrom(line, ignorecase_count, ignorewhitespace_count);
+      printf("%s %s \n", line, is_palindrom ? "is a palindrom" : "is not a palindrom");
+    }
   }
 
   puts("closing");
@@ -82,8 +92,17 @@ int main(int argc, char *argv[]) {
  * for being a palisndrom
  * @param
  */
-int8_t isPalindrom(char *c_string, int8_t ignore_case,
-                   int8_t ignore_whitespace) {
+int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace) {
 
+  int i = 0;
+  int j = strlen(c_string) - 1;
+
+  while (i < j) {
+    if (c_string[i] != c_string[j]) {
+      return 0;
+    }
+    --i;
+    --j;
+  }
   return 1;
 }

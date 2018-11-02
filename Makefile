@@ -2,7 +2,7 @@ CC = gcc
 DEFS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_VID_SOURCE -D_POSIX_C_SOURCE=200809L
 CFLAGS = -Wall -g -std=c99 -pedantic $(DEFS)
 
-OBJECTS main.o
+OBJECTS = ispalindrom.o
 
 .PHONY: all clean
 
@@ -14,7 +14,7 @@ ispalindrom: $(OBJECTS)
 %.o: %.c
     $(CC) $(CFLAGS) -c -o $@ $<
 
-main.o main.c main.h 
+ispalindrom.o ispalindrom.c ispalindrom.h 
 
 clean:
-    rm -rf *.o ue1
+    rm -rf *.o ispalindrom

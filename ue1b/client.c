@@ -14,6 +14,12 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+int8_t startsWith(const char *longstring, const char *begin) {
+  if (strncmp(longstring, begin, strlen(begin)) == 0)
+    return 1;
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
 
   // parse arguments
@@ -146,10 +152,48 @@ int main(int argc, char *argv[]) {
     fprintf(sockfile, "Connection: close\r\n\r\n");
     fflush(sockfile); // send all buffered data
 
-    char buf[1024];
+    char buf[10240];
+    // FIXME: check for NULL return
+    fgets(buf, sizeof(buf), sockfile);
 
-    while (fgets(buf, sizeof(buf), sockfile) != NULL)
-      fputs(buf, stdout);
+    char *httpString = "HTTP/1.1";
+
+    if (!startsWith(buf, httpString)) {
+      fprintf(stderr, "[%s, %s, %d]  protocol error must start with %s \n", argv[0], __FILE__,
+              __LINE__, httpString);
+      exit(EXIT_FAILURE);
+    }
+
+    char *afterStatusCode;
+    char *afterHttpString = buf + strlen(httpString);
+    long response_code = strtol(afterHttpString, &afterStatusCode, 0);
+
+    fprintf(stderr, "[%s, %s, %d]  got HTTP return code %ld \n", argv[0], __FILE__, __LINE__,
+            response_code);
+
+    if (response_code != 200) {
+      // FIXME textual description of response code
+      fprintf(stderr, "[%s, %s, %d] HTTP response code is not 200 \n", argv[0], __FILE__,
+              __LINE__);
+      exit(3);
+    }
+
+    fputs(afterHttpString, stdout);
+
+    char *content = strstr(afterHttpString, "\n\n");
+    if (content == NULL) {
+      fprintf(stderr, "[%s, %s, %d]  did not find begin of content in response \n", argv[0],
+              __FILE__, __LINE__);
+      exit(EXIT_FAILURE);
+    }
+
+    // FIXME what if buffer ends before we got all headers
+    content += 4;
+
+    fputs(content, stdout);
+
+    // while (fgets(buf, sizeof(buf), sockfile) != NULL)
+    //  fputs(buf, stdout);
 
     exit(EXIT_SUCCESS);
   }

@@ -9,11 +9,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
 int main(int argc, char *argv[]) {
 
   // parse arguments
   char *url = NULL;
-  char *port_string, *file_string, *dir_string;
+  char *port_string = "80", *file_string, *dir_string;
   int port_count = 0, file_count = 0, dir_count = 0;
   {
     const char *optstring = "p:o:d:";
@@ -81,6 +86,70 @@ int main(int argc, char *argv[]) {
     url = argv[optind];
 
     fprintf(stderr, "[%s, %s, %d]  url is %s \n", argv[0], __FILE__, __LINE__, url);
+
+    char *host = strchr(url, '/');
+    if (host == NULL) {
+      fprintf(stderr, "[%s, %s, %d] invalid URL \n", argv[0], __FILE__, __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    host += 2;
+    char *directory = strchr(host, '/');
+    if (directory == NULL) {
+      directory = "";
+    } else {
+      // use the space of where the '/' was to store the '\0' of the host string
+      *directory = '\0';
+      directory++;
+    }
+
+    fprintf(stderr, "[%s, %s, %d]  host is %s \n", argv[0], __FILE__, __LINE__, host);
+    fprintf(stderr, "[%s, %s, %d]  directory is %s \n", argv[0], __FILE__, __LINE__, directory);
+
+    struct addrinfo hints;
+    struct addrinfo *ai;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    /////
+    int res = getaddrinfo(host, port_string, &hints, &ai);
+    if (res != 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR could not resolve host \n", argv[0], __FILE__,
+              __LINE__);
+      exit(EXIT_FAILURE);
+    }
+
+    // int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+
+    if (sockfd < 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR creating socket \n", argv[0], __FILE__, __LINE__);
+      exit(EXIT_FAILURE);
+    }
+
+    // struct sockaddr_in server_addr;
+    // server_addr.sin_family = AF_INET;
+    // server_addr.sin_port = htons(80);
+    // inet_aton("216.58.201.67", &server_addr.sin_addr.s_addr);
+
+    if (connect(sockfd, ai->ai_addr, ai->ai_addrlen) < 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR connecting \n", argv[0], __FILE__, __LINE__);
+      exit(EXIT_FAILURE);
+    }
+
+    freeaddrinfo(ai);
+
+    FILE *sockfile = fdopen(sockfd, "r+");
+
+    fprintf(sockfile, "GET /%s HTTP/1.1\r\n", directory);
+    fprintf(sockfile, "Host: %s\r\n", host);
+    fprintf(sockfile, "Connection: close\r\n\r\n");
+    fflush(sockfile); // send all buffered data
+
+    char buf[1024];
+
+    while (fgets(buf, sizeof(buf), sockfile) != NULL)
+      fputs(buf, stdout);
 
     exit(EXIT_SUCCESS);
   }

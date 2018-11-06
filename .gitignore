@@ -1,3 +1,5 @@
 ispalindrom
 *.o
 .vscode
+client
+server

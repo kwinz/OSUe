@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "tools.h"
 
 int8_t startsWith(const char *longstring, const char *begin) {

@@ -16,26 +16,6 @@
 
 #include "tools.h"
 
-void send400(FILE *sockfile) {
-  // char buf[1024];
-  // while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-  // fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
-  //}
-
-  // FIXME: read all client input
-  fprintf(sockfile, "HTTP/1.1 400 Bad Request\r\n");
-  fprintf(sockfile, "Connection: close\r\n\r\n");
-  fflush(sockfile); // send all buffered data
-}
-
-void send501(FILE *sockfile) {
-
-  // FIXME: read all client input
-  fprintf(sockfile, "HTTP/1.1 501 Not implemented\r\n");
-  fprintf(sockfile, "Connection: close\r\n\r\n");
-  fflush(sockfile); // send all buffered data
-}
-
 int main(int argc, char *argv[]) {
 
   // parse arguments
@@ -189,7 +169,7 @@ int main(int argc, char *argv[]) {
 
           if (!startsWith(protocol_string, "HTTP/1.1")) {
             fprintf(stderr, "[%s, %s, %d] protocol_string %d %d \n", argv[0], __FILE__, __LINE__,
-                    strlen(protocol_string), strlen("(HTTP/1.1"));
+                    strlen(protocol_string), strlen("HTTP/1.1"));
             fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
                     __LINE__);
             send400(sockfile);
@@ -216,4 +196,24 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "[%s, %s, %d]  Finished executing. %s \n", argv[0], __FILE__, __LINE__,
           strerror(errno));
   return EXIT_SUCCESS;
+}
+
+void send400(FILE *sockfile) {
+  // char buf[1024];
+  // while (fgets(buf, sizeof(buf), sockfile) != NULL) {
+  // fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+  //}
+
+  // FIXME: read all client input
+  fprintf(sockfile, "HTTP/1.1 400 Bad Request\r\n");
+  fprintf(sockfile, "Connection: close\r\n\r\n");
+  fflush(sockfile); // send all buffered data
+}
+
+void send501(FILE *sockfile) {
+
+  // FIXME: read all client input
+  fprintf(sockfile, "HTTP/1.1 501 Not implemented\r\n");
+  fprintf(sockfile, "Connection: close\r\n\r\n");
+  fflush(sockfile); // send all buffered data
 }

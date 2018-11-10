@@ -63,9 +63,46 @@ int main(int argc, char *argv[]) {
 
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
+    fprintf(stderr, "[%s, %s, %d]  ERROR Could not create socket. %s \n", argv[0], __FILE__,
+            __LINE__, strerror(errno));
+    exit(EXIT_FAILURE);
   }
 
-  // error
+  struct sockaddr_in sa;
+
+  sa.sin_family = AF_INET;
+  sa.sin_port = htons(8080);
+  memset(&(sa.sin_addr), 0, sizeof sa.sin_addr);
+  // inet_aton("63.161.169.137", sa.sin_addr.s_addr);
+
+  if (bind(sockfd, &sa, sizeof(struct sockaddr_in)) < 0) {
+    fprintf(stderr, "[%s, %s, %d]  ERROR Could not bind socket. %s \n", argv[0], __FILE__,
+            __LINE__, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  if (listen(sockfd, 1) < 0) {
+    fprintf(
+        stderr,
+        "[%s, %s, %d]  ERROR Could not mark socket as passive, listening for connections. %s \n",
+        argv[0], __FILE__, __LINE__, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  int connfd = accept(sockfd, NULL, NULL);
+  if (connfd < 0) {
+    fprintf(stderr, "[%s, %s, %d]  ERROR Error while accepting incomming request. \n", argv[0],
+            __FILE__, __LINE__, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+
+  FILE *sockfile = fdopen(sockfd, "r+");
+
+  if (sockfile == NULL) {
+    fprintf(stderr, "[%s, %s, %d]  ERROR Could not open stream with incoming connection. \n",
+            argv[0], __FILE__, __LINE__, strerror(errno));
+    exit(EXIT_FAILURE);
+  }
 
   return EXIT_SUCCESS;
 }

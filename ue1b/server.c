@@ -14,6 +14,28 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "tools.h"
+
+void send400(FILE *sockfile) {
+  // char buf[1024];
+  // while (fgets(buf, sizeof(buf), sockfile) != NULL) {
+  // fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+  //}
+
+  // FIXME: read all client input
+  fprintf(sockfile, "HTTP/1.1 400 Bad Request\r\n");
+  fprintf(sockfile, "Connection: close\r\n\r\n");
+  fflush(sockfile); // send all buffered data
+}
+
+void send501(FILE *sockfile) {
+
+  // FIXME: read all client input
+  fprintf(sockfile, "HTTP/1.1 501 Not implemented\r\n");
+  fprintf(sockfile, "Connection: close\r\n\r\n");
+  fflush(sockfile); // send all buffered data
+}
+
 int main(int argc, char *argv[]) {
 
   // parse arguments
@@ -62,6 +84,28 @@ int main(int argc, char *argv[]) {
     const int positional_args_count = argc - optind;
   }
 
+  long port;
+  {
+    char *endpointer;
+    port = strtol(port_string, &endpointer, 0);
+    char *endpointer2 = port_string + strlen(port_string);
+
+    fprintf(stderr, "[%s, %s, %d]  Pointer1 %p \n", argv[0], __FILE__, __LINE__, endpointer);
+    fprintf(stderr, "[%s, %s, %d]  Pointer2 %p \n", argv[0], __FILE__, __LINE__, endpointer2);
+
+    // FIXME: set narrower limits
+    if (port == LONG_MIN || port == LONG_MAX || (endpointer != endpointer2)) {
+
+      fprintf(stderr, "[%s, %s, %d]  ERROR Could not parse port. \n", argv[0], __FILE__, __LINE__);
+
+      // note: strtol only sets errno, if the long range was exceeded, but not in case of other
+      // conversion errors.
+      exit(EXIT_FAILURE);
+    }
+
+    fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
+  }
+
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
     fprintf(stderr, "[%s, %s, %d]  ERROR Could not create socket. %s \n", argv[0], __FILE__,
@@ -69,24 +113,11 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  char *endpointer;
-  long port = strtol(port_string, &endpointer, 0);
-  char *endpointer2 = port_string + strlen(port_string);
-
-  fprintf(stderr, "[%s, %s, %d]  Pointer1 %p \n", argv[0], __FILE__, __LINE__, endpointer);
-  fprintf(stderr, "[%s, %s, %d]  Pointer2 %p \n", argv[0], __FILE__, __LINE__, endpointer2);
-
-  //FIXME: set narrower limits
-  if (port == LONG_MIN || port == LONG_MAX || (endpointer != endpointer2)) {
-
-    fprintf(stderr, "[%s, %s, %d]  ERROR Could not parse port. \n", argv[0], __FILE__, __LINE__);
-
-    // note: strtol only sets errno, if the long range was exceeded, but not in case of other
-    // conversion errors.
-    exit(EXIT_FAILURE);
+  // set SO_REUSEADDR
+  {
+    int optval = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
   }
-
-  fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
 
   struct sockaddr_in sa;
   sa.sin_family = AF_INET;
@@ -117,8 +148,8 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  FILE *sockfile = fdopen(sockfd, "r+");
-
+  // note: use connfd, not sockfd!!
+  FILE *sockfile = fdopen(connfd, "r+");
   if (sockfile == NULL) {
     fprintf(stderr, "[%s, %s, %d]  ERROR Could not open stream with incoming connection. %s \n",
             argv[0], __FILE__, __LINE__, strerror(errno));
@@ -128,16 +159,61 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "[%s, %s, %d]  Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
 
   char buf[1024];
+  char *request_method_string, *path_file_string, *protocol_string;
 
-  while (fgets(buf, sizeof(buf), sockfile) != NULL) {
+  if (fgets(buf, sizeof(buf), sockfile) != NULL) {
+    request_method_string = strtok(buf, " ");
+    if (request_method_string == NULL) {
+      fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
+              __FILE__, __LINE__);
+      send400(sockfile);
+    } else {
+      fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
+              request_method_string);
+      path_file_string = strtok(NULL, " ");
+      if (path_file_string == NULL) {
+        fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0], __FILE__,
+                __LINE__);
+        send400(sockfile);
+      } else {
+        fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
+                path_file_string);
+        protocol_string = strtok(NULL, " ");
+        if (path_file_string == NULL) {
+          fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0], __FILE__,
+                  __LINE__);
+          send400(sockfile);
+        } else {
+          fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
+                  protocol_string);
 
-    fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
-
-    char *token = strtok(buf, " ");
-    while (token != NULL) {
-      fprintf(stderr, "token: %s\n", token);
-      token = strtok(NULL, " ");
+          if (!startsWith(protocol_string, "HTTP/1.1")) {
+            fprintf(stderr, "[%s, %s, %d] protocol_string %d %d \n", argv[0], __FILE__, __LINE__,
+                    strlen(protocol_string), strlen("(HTTP/1.1"));
+            fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
+                    __LINE__);
+            send400(sockfile);
+          } else {
+            if (strcmp(request_method_string, "GET") != 0) {
+              fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
+                      __LINE__, request_method_string);
+              fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
+                      __FILE__, __LINE__);
+              send501(sockfile);
+            }
+          }
+        }
+      }
     }
+
+    while (fgets(buf, sizeof(buf), sockfile) != NULL) {
+      fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+    }
+
+    // strcmp(path_file_string, "HTTP/1.1") != 0
   }
+
+  fprintf(stderr, "[%s, %s, %d]  Finished executing. %s \n", argv[0], __FILE__, __LINE__,
+          strerror(errno));
   return EXIT_SUCCESS;
 }

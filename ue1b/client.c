@@ -14,11 +14,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-int8_t startsWith(const char *longstring, const char *begin) {
-  if (strncmp(longstring, begin, strlen(begin)) == 0)
-    return 1;
-  return 0;
-}
+#include "tools.h"
 
 int main(int argc, char *argv[]) {
 
@@ -183,15 +179,15 @@ int main(int argc, char *argv[]) {
     fprintf(sockfile, "Connection: close\r\n\r\n");
     fflush(sockfile); // send all buffered data
 
-    char buf[10240];
+    char buf[1024];
     // FIXME: check for NULL return
     fgets(buf, sizeof(buf), sockfile);
 
     char *httpString = "HTTP/1.1";
 
     if (!startsWith(buf, httpString)) {
-      fprintf(stderr, "[%s, %s, %d]  protocol error must start with %s \n", argv[0], __FILE__,
-              __LINE__, httpString);
+      fprintf(stderr, "[%s, %s, %d] ERROR Protocol error! Must start with %s \n", argv[0],
+              __FILE__, __LINE__, httpString);
       exit(EXIT_FAILURE);
     }
 
@@ -199,7 +195,7 @@ int main(int argc, char *argv[]) {
     char *afterHttpString = buf + strlen(httpString);
     long response_code = strtol(afterHttpString, &afterStatusCode, 0);
 
-    fprintf(stderr, "[%s, %s, %d]  got HTTP return code %ld , being %s \n", argv[0], __FILE__,
+    fprintf(stderr, "[%s, %s, %d] Got HTTP return code %ld , being %s \n", argv[0], __FILE__,
             __LINE__, response_code, afterStatusCode);
 
     if (response_code != 200) {

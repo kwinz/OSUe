@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
   char *port_string = "8080", *indexfile_string = "index.html";
   int port_count = 0, indexfile_count = 0;
 
+  // parse command line options
   {
     const char *optstring = "p:i:";
     int c;
@@ -79,6 +80,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "[%s, %s, %d]  DOCROOT is %s \n", argv[0], __FILE__, __LINE__, doc_root);
   }
 
+  // parse port
   long port;
   {
     char *endpointer;
@@ -101,8 +103,8 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
   }
 
+  // set signal handlers
   {
-
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0
     sa.sa_handler = &handle_signal;
@@ -114,52 +116,55 @@ int main(int argc, char *argv[]) {
     sa.sa_handler = &handle_signal;
     sigaction(SIGTERM, &sa, NULL);
   }
-
   {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0
     sa.sa_handler = &handle_signal_sigpipe;
     sigaction(SIGPIPE, &sa, NULL);
-
-    // signal(SIGPIPE, SIG_IGN);
   }
 
-  int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sockfd < 0) {
-    fprintf(stderr, "[%s, %s, %d]  ERROR Could not create socket. %s \n", argv[0], __FILE__,
-            __LINE__, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-
-  // set SO_REUSEADDR
+  // open server socket
+  int sockfd;
   {
-    int optval = 1;
-    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
-  }
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR Could not create socket. %s \n", argv[0], __FILE__,
+              __LINE__, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
 
-  struct sockaddr_in sa;
-  sa.sin_family = AF_INET;
-  sa.sin_port = htons(port);
-  memset(&(sa.sin_addr), 0, sizeof sa.sin_addr);
-  // inet_aton("63.161.169.137", sa.sin_addr.s_addr);
+    // set SO_REUSEADDR
+    {
+      int optval = 1;
+      setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
+    }
 
-  if (bind(sockfd, (struct sockaddr *)&sa, sizeof(struct sockaddr_in)) < 0) {
-    fprintf(stderr, "[%s, %s, %d]  ERROR Could not bind socket. %s \n", argv[0], __FILE__,
-            __LINE__, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
+    struct sockaddr_in sa;
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(port);
+    memset(&(sa.sin_addr), 0, sizeof sa.sin_addr);
+    // inet_aton("63.161.169.137", sa.sin_addr.s_addr);
 
-  if (listen(sockfd, 1) < 0) {
-    fprintf(
-        stderr,
-        "[%s, %s, %d]  ERROR Could not mark socket as passive, listening for connections. %s \n",
-        argv[0], __FILE__, __LINE__, strerror(errno));
-    exit(EXIT_FAILURE);
+    if (bind(sockfd, (struct sockaddr *)&sa, sizeof(struct sockaddr_in)) < 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR Could not bind socket. %s \n", argv[0], __FILE__,
+              __LINE__, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+
+    if (listen(sockfd, 1) < 0) {
+      fprintf(
+          stderr,
+          "[%s, %s, %d]  ERROR Could not mark socket as passive, listening for connections. %s \n",
+          argv[0], __FILE__, __LINE__, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
   }
 
   fprintf(stderr, "[%s, %s, %d]  Waiting for incoming clients. \n", argv[0], __FILE__, __LINE__);
 
   while (!quit) {
+
+    // accept client connections
     int connfd = accept(sockfd, NULL, NULL);
     if (connfd < 0) {
       if (errno == EINTR) {
@@ -173,6 +178,7 @@ int main(int argc, char *argv[]) {
 
     client_dead = 0;
 
+    // open stream to client
     // note: use connfd, not sockfd!!
     FILE *sockfile = fdopen(connfd, "r+");
     if (sockfile == NULL) {
@@ -183,48 +189,51 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "[%s, %s, %d]  Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
 
-    char bufFirstline[1024];
+    // read and parse first line from client
     char *request_method_string, *path_file_string, *protocol_string;
+    {
+      char bufFirstline[1024];
 
-    if (fgets(bufFirstline, sizeof(bufFirstline), sockfile) != NULL) {
-      request_method_string = strtok(bufFirstline, " ");
-      if (request_method_string == NULL) {
-        fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
-                __FILE__, __LINE__);
-        send400(connfd, sockfile);
-      } else {
-        fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
-                request_method_string);
-        path_file_string = strtok(NULL, " ");
-        if (path_file_string == NULL) {
-          fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0], __FILE__,
-                  __LINE__);
+      if (fgets(bufFirstline, sizeof(bufFirstline), sockfile) != NULL) {
+        request_method_string = strtok(bufFirstline, " ");
+        if (request_method_string == NULL) {
+          fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
+                  __FILE__, __LINE__);
           send400(connfd, sockfile);
         } else {
-          fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
-                  path_file_string);
-          protocol_string = strtok(NULL, " ");
+          fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
+                  request_method_string);
+          path_file_string = strtok(NULL, " ");
           if (path_file_string == NULL) {
-            fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0],
+            fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0],
                     __FILE__, __LINE__);
             send400(connfd, sockfile);
           } else {
-            fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
-                    protocol_string);
-
-            if (!startsWith(protocol_string, "HTTP/1.1")) {
-              fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__,
-                      __LINE__, strlen(protocol_string), strlen("HTTP/1.1"));
-              fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
-                      __LINE__);
+            fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
+                    path_file_string);
+            protocol_string = strtok(NULL, " ");
+            if (path_file_string == NULL) {
+              fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0],
+                      __FILE__, __LINE__);
               send400(connfd, sockfile);
             } else {
-              if (strcmp(request_method_string, "GET") != 0) {
-                fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
-                        __LINE__, request_method_string);
-                fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
-                        __FILE__, __LINE__);
-                send501(connfd, sockfile);
+              fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
+                      protocol_string);
+
+              if (!startsWith(protocol_string, "HTTP/1.1")) {
+                fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__,
+                        __LINE__, strlen(protocol_string), strlen("HTTP/1.1"));
+                fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
+                        __LINE__);
+                send400(connfd, sockfile);
+              } else {
+                if (strcmp(request_method_string, "GET") != 0) {
+                  fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
+                          __LINE__, request_method_string);
+                  fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
+                          __FILE__, __LINE__);
+                  send501(connfd, sockfile);
+                }
               }
             }
           }
@@ -232,7 +241,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // read all headers
+    // read all headers from client
     char buf[1024];
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
@@ -241,12 +250,14 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    // we have to read all client data before we are allowed to send response
+    // the client may have sent binary body
     drainBuffer(connfd, sockfile);
 
+    // here we assemble the final file string and open the file
     FILE *inFile;
     char filestringFinal[1000];
     {
-
       // FIXME bufferoverflow protection
 
       fprintf(stderr, "[%s, %s, %d] path_file_string is %s \n", argv[0], __FILE__, __LINE__,
@@ -276,10 +287,12 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "[%s, %s, %d] Opened file. Sending %s \n", argv[0], __FILE__, __LINE__,
             filestringFinal);
 
-    // send file
+    // send response
     {
+      // send 200 OK
       fprintf(sockfile, "HTTP/1.1 200 OK\r\n");
 
+      // Send date response header
       // e.g. Date: Sun, 11 Nov 18 22:55:00 GMT
       {
         char date[1000];
@@ -294,6 +307,28 @@ int main(int argc, char *argv[]) {
         strftime(date, sizeof date, "%a, %d %b %y %H:%M:%S %Z", &tm);
         fprintf(sockfile, "Date: %s\r\n", date);
       }
+
+      // send Content-Type if known (BONUS)
+      {
+        const char *content_type_format = "Content-Type: %s\r\n";
+        if (strEndsWith(filestringFinal, ".html") || strEndsWith(filestringFinal, ".htm")) {
+          fprintf(sockfile, content_type_format, "text/html");
+        }
+        if (strEndsWith(filestringFinal, ".css")) {
+          fprintf(sockfile, content_type_format, "text/css");
+        }
+        if (strEndsWith(filestringFinal, ".js")) {
+          fprintf(sockfile, content_type_format, "application/javascript");
+        }
+        if (strEndsWith(filestringFinal, ".png")) {
+          fprintf(sockfile, content_type_format, "image/png");
+        }
+        if (strEndsWith(filestringFinal, ".pdf")) {
+          fprintf(sockfile, content_type_format, "application/pdf");
+        }
+      }
+
+      // send other response headers
       {
         fseek(inFile, 0, SEEK_END); // seek to end of file
         long size = ftell(inFile);  // get current file pointer
@@ -302,6 +337,7 @@ int main(int argc, char *argv[]) {
       }
       fprintf(sockfile, "Connection: close\r\n\r\n");
 
+      // send content
       {
         char copy_buffer[1024];
         size_t bytes;

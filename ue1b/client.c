@@ -206,7 +206,6 @@ int main(int argc, char *argv[]) {
       exit(3);
     }
 
-    FILE *targetFile = stderr;
     FILE *outputFile = stdout;
 
     if (strlen(filestringFinal) > 0) {
@@ -220,11 +219,19 @@ int main(int argc, char *argv[]) {
 
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       // empty line still has two characters for new line
-      if (targetFile == stderr && strlen(buf) == 2) {
-        targetFile = outputFile;
+      fputs(buf, stderr);
+      if (strlen(buf) == 2) {
         fprintf(stderr, "[%s, %s, %d] header ended \n", argv[0], __FILE__, __LINE__);
+        break;
       }
-      fputs(buf, targetFile);
+    }
+
+    {
+      char copy_buffer[1024];
+      size_t bytes;
+      while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), sockfile))) {
+        fwrite(copy_buffer, 1, bytes, outputFile);
+      }
     }
 
     if (outputFile != stdout) {

@@ -65,9 +65,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // printf("%d\r\n", number_of_file_args);
-  // fflush(stdout);
-
   FILE *out_file = NULL;
 
   if (o_count > 0) {
@@ -108,9 +105,23 @@ int main(int argc, char *argv[]) {
   return EXIT_SUCCESS;
 }
 
+
+/**
+ * @brief Checks one input file's lines for being a palindrome.
+ * 
+ * @detail The file is read line by line. Memory is allocated dynamicaly internally.
+ * Output is written to *out_file. *out_file may be stdout.
+ *
+ * @param input_file filestream to be read. Must be opened and valid. This parameter may be NULL - in this case this function reads from stdin
+ * @param out_file filestream to write result to. Must be opened and valid. If this is NULL then this funtion outputs to stdout
+ * @param ignore_case if != 0 then then upper/lower-case is ignored when processing
+ * palindrome
+ * @param ignore_whitespace if != 0 then then all whitespace (not including special
+ * characters like '\t') is ignored when processing palindrome
+ */
 void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ignore_whitespace) {
 
-  // warning: linebuffer_size is not const, as getline might modify it when it
+  // note: linebuffer_size is not const, as getline might modify it when it
   // needs to resize the buffer
   size_t linebuffer_size = 2;
   char *line = malloc(linebuffer_size);
@@ -151,6 +162,8 @@ void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ign
 
 /**
  * @brief returns != 0 if the string is a palindrom
+ * 
+ * @detail May skip spaces and match different cases as equal depending on parameters.
  *
  * @param c_string pointer to '\0' terminated char sequence which will be tested
  * for being a palindrom
@@ -158,6 +171,7 @@ void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ign
  * palindrome
  * @param ignore_whitespace if != 0 then then all whitespace (not including special
  * characters like '\t') is ignored when processing palindrome
+ * @return 1 if c_string is a palindrome, 0 otherwise
  */
 int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace) {
 
@@ -165,9 +179,8 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
   int j = strlen(c_string) - 1;
 
   while (i < j) {
-    // printf("first: %c,", c_string[i]);
-    // printf(" second: %c\n", c_string[j]);
     if (ignore_whitespace) {
+      //ignore whitespace from left
       while (c_string[i] == ' ') {
         ++i;
         if (i > j) {
@@ -175,6 +188,7 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
         }
       }
 
+      //ignore whitespace from right
       while (c_string[j] == ' ') {
         --j;
         if (i > j) {

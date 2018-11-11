@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "server.h"
 #include "tools.h"
@@ -205,14 +206,32 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    drainBuffer(connfd, sockfile);
+
     fprintf(stderr, "[%s, %s, %d]  Sending file  %s \n", argv[0], __FILE__, __LINE__,
             indexfile_string);
 
-    // FIXME: implement send file
+    // send file
+    {
+      fprintf(sockfile, "HTTP/1.1 200 OK\r\n");
 
-    send501(connfd, sockfile);
+      // e.g. Date: Sun, 11 Nov 18 22:55:00 GMT
+      {
+        char date[1000];
+        time_t now = time(0);
+        struct tm tm = *gmtime(&now);
 
-    // strcmp(path_file_string, "HTTP/1.1") != 0
+        // I hate implementing the years as 2 digits, because RFC822 is obsolete
+        // https://tools.ietf.org/html/rfc7231#section-7.1.1.1
+        // https://www.ietf.org/rfc/rfc3339.txt
+        // but the exercise specification is forcing me to.
+
+        strftime(date, sizeof date, "%a, %d %b %y %H:%M:%S %Z", &tm);
+        fprintf(sockfile, "Date: %s\r\n", date);
+      }
+      fprintf(sockfile, "Content-Length: \r\n");
+      fprintf(sockfile, "Connection: close\r\n\r\n");
+    }
   }
 
   fprintf(stderr, "[%s, %s, %d]  Finished executing. %s \n", argv[0], __FILE__, __LINE__,

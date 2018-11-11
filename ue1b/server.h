@@ -2,5 +2,6 @@
 
 #include <stdio.h>
 
-void send400(FILE *sockfile);
-void send501(FILE *sockfile);
+void send400(int fd, FILE *sockfile);
+void send501(int fd, FILE *sockfile);
+void drainBuffer(int fd, FILE *sockfile);

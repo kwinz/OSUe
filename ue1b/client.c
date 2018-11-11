@@ -14,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "client.h"
 #include "tools.h"
 
 int main(int argc, char *argv[]) {

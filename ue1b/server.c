@@ -9,11 +9,13 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include "server.h"
 #include "tools.h"
 
 int main(int argc, char *argv[]) {
@@ -62,6 +64,15 @@ int main(int argc, char *argv[]) {
     }
 
     const int positional_args_count = argc - optind;
+
+    if (positional_args_count != 1) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR DOCROOT is mandatory. \n", argv[0], __FILE__, __LINE__);
+      exit(EXIT_FAILURE);
+    }
+
+    doc_root = argv[optind];
+
+    fprintf(stderr, "[%s, %s, %d]  DOCROOT is %s \n", argv[0], __FILE__, __LINE__, doc_root);
   }
 
   long port;
@@ -105,7 +116,7 @@ int main(int argc, char *argv[]) {
   memset(&(sa.sin_addr), 0, sizeof sa.sin_addr);
   // inet_aton("63.161.169.137", sa.sin_addr.s_addr);
 
-  if (bind(sockfd, &sa, sizeof(struct sockaddr_in)) < 0) {
+  if (bind(sockfd, (struct sockaddr *)&sa, sizeof(struct sockaddr_in)) < 0) {
     fprintf(stderr, "[%s, %s, %d]  ERROR Could not bind socket. %s \n", argv[0], __FILE__,
             __LINE__, strerror(errno));
     exit(EXIT_FAILURE);
@@ -146,7 +157,7 @@ int main(int argc, char *argv[]) {
     if (request_method_string == NULL) {
       fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
               __FILE__, __LINE__);
-      send400(sockfile);
+      send400(connfd, sockfile);
     } else {
       fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
               request_method_string);
@@ -154,7 +165,7 @@ int main(int argc, char *argv[]) {
       if (path_file_string == NULL) {
         fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0], __FILE__,
                 __LINE__);
-        send400(sockfile);
+        send400(connfd, sockfile);
       } else {
         fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
                 path_file_string);
@@ -162,33 +173,44 @@ int main(int argc, char *argv[]) {
         if (path_file_string == NULL) {
           fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0], __FILE__,
                   __LINE__);
-          send400(sockfile);
+          send400(connfd, sockfile);
         } else {
           fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
                   protocol_string);
 
           if (!startsWith(protocol_string, "HTTP/1.1")) {
-            fprintf(stderr, "[%s, %s, %d] protocol_string %d %d \n", argv[0], __FILE__, __LINE__,
+            fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__, __LINE__,
                     strlen(protocol_string), strlen("HTTP/1.1"));
             fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
                     __LINE__);
-            send400(sockfile);
+            send400(connfd, sockfile);
           } else {
             if (strcmp(request_method_string, "GET") != 0) {
               fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
                       __LINE__, request_method_string);
               fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
                       __FILE__, __LINE__);
-              send501(sockfile);
+              send501(connfd, sockfile);
             }
           }
         }
       }
     }
 
+    // read all headers
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+      if (strlen(buf) == 2) {
+        break;
+      }
     }
+
+    fprintf(stderr, "[%s, %s, %d]  Sending file  %s \n", argv[0], __FILE__, __LINE__,
+            indexfile_string);
+
+    // FIXME: implement send file
+
+    send501(connfd, sockfile);
 
     // strcmp(path_file_string, "HTTP/1.1") != 0
   }
@@ -198,22 +220,42 @@ int main(int argc, char *argv[]) {
   return EXIT_SUCCESS;
 }
 
-void send400(FILE *sockfile) {
-  // char buf[1024];
-  // while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-  // fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
-  //}
-
-  // FIXME: read all client input
+void send400(int fd, FILE *sockfile) {
+  drainBuffer(fd, sockfile);
   fprintf(sockfile, "HTTP/1.1 400 Bad Request\r\n");
   fprintf(sockfile, "Connection: close\r\n\r\n");
   fflush(sockfile); // send all buffered data
 }
 
-void send501(FILE *sockfile) {
-
-  // FIXME: read all client input
+void send501(int fd, FILE *sockfile) {
+  drainBuffer(fd, sockfile);
   fprintf(sockfile, "HTTP/1.1 501 Not implemented\r\n");
   fprintf(sockfile, "Connection: close\r\n\r\n");
   fflush(sockfile); // send all buffered data
+}
+
+void drainBuffer(int fd, FILE *sockfile) {
+  fprintf(stderr, "[%s, %d] Before draining buffer \n", __FILE__, __LINE__);
+
+  int flags = fcntl(fd, F_GETFL, 0);
+  fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+  static char buf[1024];
+  size_t bytes_read;
+  while ((bytes_read = fread(buf, sizeof(buf), UINT_MAX, sockfile)) != 0) {
+    fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
+  }
+
+  fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
+
+  fprintf(stderr, "[%s, %d] Setting blocking again \n", __FILE__, __LINE__);
+
+  fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+
+  // while ((bytes_read = fread(buf, sizeof(buf), UINT_MAX, sockfile)) != 0) {
+  //  fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
+  //}
+  // fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
+
+  fprintf(stderr, "[%s, %d] After draining buffer \n", __FILE__, __LINE__);
 }

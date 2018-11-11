@@ -14,6 +14,9 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <unistd.h>
+#include <zlib.h>
+
 #include "client.h"
 #include "tools.h"
 
@@ -179,6 +182,9 @@ int main(int argc, char *argv[]) {
 
     fprintf(sockfile, "GET /%s HTTP/1.1\r\n", directory);
     fprintf(sockfile, "Host: %s\r\n", host);
+
+    fprintf(sockfile, "Accept-Encoding: gzip\r\n");
+
     fprintf(sockfile, "Connection: close\r\n\r\n");
     fflush(sockfile); // send all buffered data
 
@@ -219,8 +225,16 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    int8_t server_used_gzip = 0;
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       fputs(buf, stderr);
+
+      if (startsWith(buf, "Content-Encoding: gzip")) {
+        fprintf(stderr, "[%s, %s, %d] Server sending gziped content \n", argv[0], __FILE__,
+                __LINE__);
+        server_used_gzip = 1;
+      }
+
       // empty line still has two characters for new line
       if (strlen(buf) == 2) {
         fprintf(stderr, "[%s, %s, %d] header ended \n", argv[0], __FILE__, __LINE__);
@@ -228,12 +242,46 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    {
+    if (!server_used_gzip) {
       char copy_buffer[1024];
       size_t bytes;
       while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), sockfile))) {
         fwrite(copy_buffer, 1, bytes, outputFile);
       }
+    } else {
+
+      uint8_t copy_buffer[10240];
+      uint8_t copy_buffer_decompressed[300];
+      size_t bytes;
+
+      int ret;
+      z_stream zs;
+      memset(&zs, 0, sizeof(zs));
+      inflateInit2(&zs, MAX_WBITS + 16);
+
+      while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), sockfile))) {
+
+        fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__, __LINE__,
+                bytes);
+
+        zs.next_in = copy_buffer;
+        zs.avail_in = bytes;
+
+        do {
+          zs.next_out = copy_buffer_decompressed;
+          zs.avail_out = sizeof(copy_buffer_decompressed);
+
+          ret = inflate(&zs, Z_SYNC_FLUSH);
+          assert(ret != Z_STREAM_ERROR); /* state not clobbered */
+
+          const size_t have = sizeof(copy_buffer_decompressed) - zs.avail_out;
+          fprintf(stderr, "[%s, %s, %d]  Inflated once, size is %zu \n", argv[0], __FILE__,
+                  __LINE__, have);
+
+          fwrite(copy_buffer_decompressed, 1, have, outputFile);
+        } while (zs.avail_out == 0);
+      }
+      deflateEnd(&zs);
     }
 
     if (outputFile != stdout) {

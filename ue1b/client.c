@@ -23,7 +23,6 @@ int main(int argc, char *argv[]) {
   char *url = NULL;
   char *port_string = "80", *file_string, *dir_string;
   int port_count = 0, file_count = 0, dir_count = 0;
-  char filestringFinal[1024] = {};
   {
     const char *optstring = "p:o:d:";
     int c;
@@ -109,34 +108,37 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "[%s, %s, %d]  host is %s \n", argv[0], __FILE__, __LINE__, host);
     fprintf(stderr, "[%s, %s, %d]  directory is %s \n", argv[0], __FILE__, __LINE__, directory);
 
-    if (dir_count == 1) {
-      // fixme check length
-      strcpy(filestringFinal, dir_string);
-      // fixme check length
-      strcat(filestringFinal, "/");
+    char filestringFinal[1024];
+    {
+      if (dir_count == 1) {
+        // fixme check length
+        strcpy(filestringFinal, dir_string);
+        // fixme check length
+        strcat(filestringFinal, "/");
 
-      // see https://tuwel.tuwien.ac.at/mod/forum/discuss.php?d=123112
-      char *lastSlashInDirectory = strrchr(directory, '/');
-      if (lastSlashInDirectory != NULL) {
-        // the directory is more than just a filename we have to parse it
-        if (strlen(lastSlashInDirectory) == 1) {
-          // the directory is just a folder so append index.html
-          strcat(filestringFinal, "index.html");
-        }
-      } else {
-        if (strlen(lastSlashInDirectory) == 0) {
-          // the directory is just a folder so append index.html
-          strcat(filestringFinal, "index.html");
+        // see https://tuwel.tuwien.ac.at/mod/forum/discuss.php?d=123112
+        char *lastSlashInDirectory = strrchr(directory, '/');
+        if (lastSlashInDirectory != NULL) {
+          // the directory is more than just a filename we have to parse it
+          if (strlen(lastSlashInDirectory) == 1) {
+            // the directory is just a folder so append index.html
+            strcat(filestringFinal, "index.html");
+          }
         } else {
-          strcat(filestringFinal, directory);
+          if (strlen(lastSlashInDirectory) == 0) {
+            // the directory is just a folder so append index.html
+            strcat(filestringFinal, "index.html");
+          } else {
+            strcat(filestringFinal, directory);
+          }
         }
+
+        // FIXME don't hardcode character array
       }
 
-      // FIXME don't hardcode character array
-    }
-
-    if (file_count == 1) {
-      strcpy(filestringFinal, file_string);
+      if (file_count == 1) {
+        strcpy(filestringFinal, file_string);
+      }
     }
 
     struct addrinfo hints;
@@ -218,8 +220,8 @@ int main(int argc, char *argv[]) {
     }
 
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-      // empty line still has two characters for new line
       fputs(buf, stderr);
+      // empty line still has two characters for new line
       if (strlen(buf) == 2) {
         fprintf(stderr, "[%s, %s, %d] header ended \n", argv[0], __FILE__, __LINE__);
         break;

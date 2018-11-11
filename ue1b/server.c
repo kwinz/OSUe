@@ -324,22 +324,22 @@ int main(int argc, char *argv[]) {
 }
 
 void send400(int fd, FILE *sockfile) {
-  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 400 Bad Request\r\n");
+  sendResponseHeaderOnly(fd, sockfile, "HTTP/1.1 400 Bad Request\r\n");
 }
 
 void send404(int fd, FILE *sockfile) {
-  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 404 Not Found\r\n");
+  sendResponseHeaderOnly(fd, sockfile, "HTTP/1.1 404 Not Found\r\n");
 }
 
 void send501(int fd, FILE *sockfile) {
-  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 501 Not implemented\r\n");
+  sendResponseHeaderOnly(fd, sockfile, "HTTP/1.1 501 Not implemented\r\n");
 }
 
 void handle_signal(int signal) { quit = 1; }
 
 void handle_signal_sigpipe(int signal) { client_dead = 1; }
 
-void sendResponseStringOnly(int fd, FILE *sockfile, char *response_string) {
+void sendResponseHeaderOnly(int fd, FILE *sockfile, char *response_string) {
   drainBuffer(fd, sockfile);
   fprintf(sockfile, response_string);
   fprintf(sockfile, "Connection: close\r\n\r\n");

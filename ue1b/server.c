@@ -342,12 +342,20 @@ int main(int argc, char *argv[]) {
 
       // send other response headers
       {
-        fseek(inFile, 0, SEEK_END); // seek to end of file
-        long size = ftell(inFile);  // get current file pointer
-        fseek(inFile, 0, SEEK_SET);
-        fprintf(sockfile, "Content-Length: %ld\r\n", size);
+
         if (gzip) {
           fprintf(sockfile, "Content-Encoding: gzip\r\n");
+          // Content-Length indicates transfer length
+          // https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.13 But it is not
+          // mandatory, the client will stop reading when the server closes the connection. so in
+          // case of Content-Encoding: gzip we don't send Content-Length, so we don't have to store
+          // the response in memory or compress the body twice.
+        } else {
+
+          fseek(inFile, 0, SEEK_END); // seek to end of file
+          long size = ftell(inFile);  // get current file pointer
+          fseek(inFile, 0, SEEK_SET);
+          fprintf(sockfile, "Content-Length: %ld\r\n", size);
         }
       }
 

@@ -1,23 +1,25 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "server.h"
 #include "tools.h"
+
+volatile sig_atomic_t quit = 0;
 
 int main(int argc, char *argv[]) {
 
@@ -133,175 +135,182 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "[%s, %s, %d]  Waiting for incoming clients. \n", argv[0], __FILE__, __LINE__);
 
-  int connfd = accept(sockfd, NULL, NULL);
-  if (connfd < 0) {
-    fprintf(stderr, "[%s, %s, %d]  ERROR Error while accepting incomming request. %s \n", argv[0],
-            __FILE__, __LINE__, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
+  while (!quit) {
+    int connfd = accept(sockfd, NULL, NULL);
+    if (connfd < 0) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR Error while accepting incomming request. %s \n",
+              argv[0], __FILE__, __LINE__, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
 
-  // note: use connfd, not sockfd!!
-  FILE *sockfile = fdopen(connfd, "r+");
-  if (sockfile == NULL) {
-    fprintf(stderr, "[%s, %s, %d]  ERROR Could not open stream with incoming connection. %s \n",
-            argv[0], __FILE__, __LINE__, strerror(errno));
-    exit(EXIT_FAILURE);
-  }
+    // note: use connfd, not sockfd!!
+    FILE *sockfile = fdopen(connfd, "r+");
+    if (sockfile == NULL) {
+      fprintf(stderr, "[%s, %s, %d]  ERROR Could not open stream with incoming connection. %s \n",
+              argv[0], __FILE__, __LINE__, strerror(errno));
+      exit(EXIT_FAILURE);
+    }
 
-  fprintf(stderr, "[%s, %s, %d]  Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
+    fprintf(stderr, "[%s, %s, %d]  Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
 
-  char bufFirstline[1024];
-  char *request_method_string, *path_file_string, *protocol_string;
+    char bufFirstline[1024];
+    char *request_method_string, *path_file_string, *protocol_string;
 
-  if (fgets(bufFirstline, sizeof(bufFirstline), sockfile) != NULL) {
-    request_method_string = strtok(bufFirstline, " ");
-    if (request_method_string == NULL) {
-      fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
-              __FILE__, __LINE__);
-      send400(connfd, sockfile);
-    } else {
-      fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
-              request_method_string);
-      path_file_string = strtok(NULL, " ");
-      if (path_file_string == NULL) {
-        fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0], __FILE__,
-                __LINE__);
+    if (fgets(bufFirstline, sizeof(bufFirstline), sockfile) != NULL) {
+      request_method_string = strtok(bufFirstline, " ");
+      if (request_method_string == NULL) {
+        fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
+                __FILE__, __LINE__);
         send400(connfd, sockfile);
       } else {
-        fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
-                path_file_string);
-        protocol_string = strtok(NULL, " ");
+        fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
+                request_method_string);
+        path_file_string = strtok(NULL, " ");
         if (path_file_string == NULL) {
-          fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0], __FILE__,
+          fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0], __FILE__,
                   __LINE__);
           send400(connfd, sockfile);
         } else {
-          fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
-                  protocol_string);
-
-          if (!startsWith(protocol_string, "HTTP/1.1")) {
-            fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__, __LINE__,
-                    strlen(protocol_string), strlen("HTTP/1.1"));
-            fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
-                    __LINE__);
+          fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
+                  path_file_string);
+          protocol_string = strtok(NULL, " ");
+          if (path_file_string == NULL) {
+            fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0],
+                    __FILE__, __LINE__);
             send400(connfd, sockfile);
           } else {
-            if (strcmp(request_method_string, "GET") != 0) {
-              fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
-                      __LINE__, request_method_string);
-              fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
-                      __FILE__, __LINE__);
-              send501(connfd, sockfile);
+            fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
+                    protocol_string);
+
+            if (!startsWith(protocol_string, "HTTP/1.1")) {
+              fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__,
+                      __LINE__, strlen(protocol_string), strlen("HTTP/1.1"));
+              fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
+                      __LINE__);
+              send400(connfd, sockfile);
+            } else {
+              if (strcmp(request_method_string, "GET") != 0) {
+                fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
+                        __LINE__, request_method_string);
+                fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
+                        __FILE__, __LINE__);
+                send501(connfd, sockfile);
+              }
             }
           }
         }
       }
     }
-  }
 
-  // read all headers
-  char buf[1024];
-  while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-    fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
-    if (strlen(buf) == 2) {
-      break;
-    }
-  }
-
-  drainBuffer(connfd, sockfile);
-
-  FILE *inFile;
-  char filestringFinal[1000];
-  {
-
-    // FIXME bufferoverflow protection
-
-    fprintf(stderr, "[%s, %s, %d] path_file_string is %s \n", argv[0], __FILE__, __LINE__,
-            path_file_string);
-
-    strcpy(filestringFinal, doc_root);
-    strcat(filestringFinal, path_file_string);
-
-    // FIXME put into utility function
-    if (path_file_string && *path_file_string != '\0' &&
-        '/' == *(path_file_string + strlen(path_file_string) - 1)) {
-      fprintf(stderr, "[%s, %d] path_file_string was a directory \n", __FILE__, __LINE__);
-      strcat(filestringFinal, indexfile_string);
-    }
-
-    inFile = fopen(filestringFinal, "rb");
-    if (inFile == NULL) {
-      fprintf(stderr, "[%s, %s, %d]  could not open outfile %s \n", argv[0], __FILE__, __LINE__,
-              filestringFinal);
-
-      send404(connfd, sockfile);
-      // FIXME handle next request instead
-      return EXIT_SUCCESS;
-    }
-  }
-
-  fprintf(stderr, "[%s, %s, %d] Opened file. Sending %s \n", argv[0], __FILE__, __LINE__,
-          filestringFinal);
-
-  // send file
-  {
-    fprintf(sockfile, "HTTP/1.1 200 OK\r\n");
-
-    // e.g. Date: Sun, 11 Nov 18 22:55:00 GMT
-    {
-      char date[1000];
-      time_t now = time(0);
-      struct tm tm = *gmtime(&now);
-
-      // I hate implementing the years as 2 digits, because RFC822 is obsolete
-      // https://tools.ietf.org/html/rfc7231#section-7.1.1.1
-      // https://www.ietf.org/rfc/rfc3339.txt
-      // but the exercise specification is forcing me to.
-
-      strftime(date, sizeof date, "%a, %d %b %y %H:%M:%S %Z", &tm);
-      fprintf(sockfile, "Date: %s\r\n", date);
-    }
-    {
-      fseek(inFile, 0, SEEK_END); // seek to end of file
-      long size = ftell(inFile);  // get current file pointer
-      fseek(inFile, 0, SEEK_SET);
-      fprintf(sockfile, "Content-Length: %ld\r\n", size);
-    }
-    fprintf(sockfile, "Connection: close\r\n\r\n");
-
-    {
-      char copy_buffer[1024];
-      size_t bytes;
-      while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
-        fwrite(copy_buffer, 1, bytes, sockfile);
+    // read all headers
+    char buf[1024];
+    while (fgets(buf, sizeof(buf), sockfile) != NULL) {
+      fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+      if (strlen(buf) == 2) {
+        break;
       }
     }
+
+    drainBuffer(connfd, sockfile);
+
+    FILE *inFile;
+    char filestringFinal[1000];
+    {
+
+      // FIXME bufferoverflow protection
+
+      fprintf(stderr, "[%s, %s, %d] path_file_string is %s \n", argv[0], __FILE__, __LINE__,
+              path_file_string);
+
+      strcpy(filestringFinal, doc_root);
+      strcat(filestringFinal, path_file_string);
+
+      // FIXME put into utility function
+      if (path_file_string && *path_file_string != '\0' &&
+          '/' == *(path_file_string + strlen(path_file_string) - 1)) {
+        fprintf(stderr, "[%s, %d] path_file_string was a directory \n", __FILE__, __LINE__);
+        strcat(filestringFinal, indexfile_string);
+      }
+
+      inFile = fopen(filestringFinal, "rb");
+      if (inFile == NULL) {
+        fprintf(stderr, "[%s, %s, %d]  could not open outfile %s \n", argv[0], __FILE__, __LINE__,
+                filestringFinal);
+
+        send404(connfd, sockfile);
+        // FIXME handle next request instead
+        return EXIT_SUCCESS;
+      }
+    }
+
+    fprintf(stderr, "[%s, %s, %d] Opened file. Sending %s \n", argv[0], __FILE__, __LINE__,
+            filestringFinal);
+
+    // send file
+    {
+      fprintf(sockfile, "HTTP/1.1 200 OK\r\n");
+
+      // e.g. Date: Sun, 11 Nov 18 22:55:00 GMT
+      {
+        char date[1000];
+        time_t now = time(0);
+        struct tm tm = *gmtime(&now);
+
+        // I hate implementing the years as 2 digits, because RFC822 is obsolete
+        // https://tools.ietf.org/html/rfc7231#section-7.1.1.1
+        // https://www.ietf.org/rfc/rfc3339.txt
+        // but the exercise specification is forcing me to.
+
+        strftime(date, sizeof date, "%a, %d %b %y %H:%M:%S %Z", &tm);
+        fprintf(sockfile, "Date: %s\r\n", date);
+      }
+      {
+        fseek(inFile, 0, SEEK_END); // seek to end of file
+        long size = ftell(inFile);  // get current file pointer
+        fseek(inFile, 0, SEEK_SET);
+        fprintf(sockfile, "Content-Length: %ld\r\n", size);
+      }
+      fprintf(sockfile, "Connection: close\r\n\r\n");
+
+      {
+        char copy_buffer[1024];
+        size_t bytes;
+        while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
+          fwrite(copy_buffer, 1, bytes, sockfile);
+        }
+      }
+    }
+
+    // closing stream
+    { fclose(sockfile); }
+
+    fprintf(stderr, "[%s, %s, %d]  Finished serving client request. Errno: %s\n", argv[0],
+            __FILE__, __LINE__, strerror(errno));
   }
 
-  fprintf(stderr, "[%s, %s, %d]  Finished executing. %s \n", argv[0], __FILE__, __LINE__,
+  fprintf(stderr, "[%s, %s, %d]  Finished executing. Errno: %s \n", argv[0], __FILE__, __LINE__,
           strerror(errno));
   return EXIT_SUCCESS;
 }
 
 void send400(int fd, FILE *sockfile) {
-  drainBuffer(fd, sockfile);
-  fprintf(sockfile, "HTTP/1.1 400 Bad Request\r\n");
-  fprintf(sockfile, "Connection: close\r\n\r\n");
-  fflush(sockfile); // send all buffered data
+  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 400 Bad Request\r\n");
 }
 
 void send404(int fd, FILE *sockfile) {
-  drainBuffer(fd, sockfile);
-  fprintf(sockfile, "HTTP/1.1 404 Not Found\r\n");
-  fprintf(sockfile, "Connection: close\r\n\r\n");
-  fflush(sockfile); // send all buffered data
+  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 404 Not Found\r\n");
 }
 
 void send501(int fd, FILE *sockfile) {
+  sendResponseStringOnly(fd, sockfile, "HTTP/1.1 501 Not implemented\r\n");
+}
+
+void sendResponseStringOnly(int fd, FILE *sockfile, char *response_string) {
   drainBuffer(fd, sockfile);
-  fprintf(sockfile, "HTTP/1.1 501 Not implemented\r\n");
+  fprintf(sockfile, response_string);
   fprintf(sockfile, "Connection: close\r\n\r\n");
-  fflush(sockfile); // send all buffered data
+  // send all buffered data (but sockfile stream is probably unbuffered anyway )
+  fflush(sockfile);
 }
 
 void drainBuffer(int fd, FILE *sockfile) {

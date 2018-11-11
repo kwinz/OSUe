@@ -242,20 +242,13 @@ void drainBuffer(int fd, FILE *sockfile) {
 
   static char buf[1024];
   size_t bytes_read;
-  while ((bytes_read = fread(buf, sizeof(buf), UINT_MAX, sockfile)) != 0) {
+  while ((bytes_read = fread(buf, sizeof(char), sizeof(buf) / sizeof(char), sockfile)) != 0) {
     fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
   }
-
   fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
 
   fprintf(stderr, "[%s, %d] Setting blocking again \n", __FILE__, __LINE__);
-
   fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-
-  // while ((bytes_read = fread(buf, sizeof(buf), UINT_MAX, sockfile)) != 0) {
-  //  fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
-  //}
-  // fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
 
   fprintf(stderr, "[%s, %d] After draining buffer \n", __FILE__, __LINE__);
 }

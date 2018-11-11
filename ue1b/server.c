@@ -19,14 +19,44 @@
 #include <unistd.h>
 #include <zlib.h>
 
-#include "server.h"
 #include "tools.h"
 
+/** @defgroup Server */
+
+/** @addtogroup Server
+ * @brief This serves files over HTTP.
+ *
+ * @details Can serve files from a docroot.
+ * Can compress served files with gzip.
+ * May serve directories (index.html) or files.
+ *
+ * @author Markus Krainz
+ * @date November 2018
+ *  @{
+ */
+
+#include "server.h"
+
+/**
+ * Flag to indicate we got a SIGNAL to terminate.
+ */
 volatile sig_atomic_t quit = 0;
+
+/**
+ * Flag to indicate we got a SIGPIPE, indicating connection to client was lost.
+ */
 volatile sig_atomic_t client_dead = 0;
 
-int main(int argc, char *argv[]) {
+static void send400(int fd, FILE *sockfile);
+static void send404(int fd, FILE *sockfile);
+static void send501(int fd, FILE *sockfile);
+static void sendResponseHeaderOnly(int fd, FILE *sockfile, char *response_string);
+static void drainBuffer(int fd, FILE *sockfile);
+static void handle_signal(int signal);
+static void handle_signal_sigpipe(int signal);
+static void printUsage(char *name);
 
+int main(int argc, char *argv[]) {
   // parse arguments
   char *doc_root = NULL;
   const char *port_string = "8080", *indexfile_string = "index.html";
@@ -52,6 +82,7 @@ int main(int argc, char *argv[]) {
       case '?': {
         fprintf(stderr, "[%s, %s, %d] ERROR unknown option or missing argument \n", argv[0],
                 __FILE__, __LINE__);
+        printUsage(argv[0]);
         exit(EXIT_FAILURE);
       } break;
       default:
@@ -62,12 +93,14 @@ int main(int argc, char *argv[]) {
     if (port_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-p' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (indexfile_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-o' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
@@ -75,6 +108,7 @@ int main(int argc, char *argv[]) {
 
     if (positional_args_count != 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR DOCROOT is mandatory. \n", argv[0], __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
@@ -480,3 +514,23 @@ void drainBuffer(int fd, FILE *sockfile) {
 
   fprintf(stderr, "[%s, %d] After draining buffer \n", __FILE__, __LINE__);
 }
+
+/**
+ * @brief Prints help including arguments of this program to stderr.
+ *
+ * @param name c_string of the name of the executable
+ */
+void printUsage(char *name) {
+  fprintf(stderr, "\nUsage:\n\n");
+  fprintf(stderr, "%s [-p PORT] [-i INDEX] DOC_ROOT\n", name);
+  fprintf(stderr, "\t-p Can be used to specify the port on which the server shall listen for "
+                  "clients.\n\t Defaults to 8080.\n");
+  fprintf(stderr,
+          "\t-i specifies filename which is a appended to request path if\n\t request path "
+          "is a directory.\n");
+  fprintf(
+      stderr,
+      "\tDOC_ROOT Path of the document root directory. This contains the files to be served. \n");
+}
+
+/** @}*/

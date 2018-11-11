@@ -1,5 +1,3 @@
-#include "ispalindrom.h"
-
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -9,6 +7,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+/** @defgroup Palindrom */
+
+/** @addtogroup Palindrom
+ * @brief Checks if lines are palindromes.
+ * 
+ * @details Can read one or more files, or stdin line by line.
+ * Checks if each line is a palindrom. May ignore whitespaces or
+ * not differentiate between lower and upper cases letters.
+ * 
+ * @author Markus Krainz
+ * @date November 2018
+ *  @{
+ */
+
+#include "ispalindrom.h"
 
 static int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace);
 static void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case,
@@ -114,7 +128,7 @@ int main(int argc, char *argv[]) {
 /**
  * @brief Prints help including arguments of this program to stderr.
  *
- * @name: c_string of the name of the executable
+ * @param name c_string of the name of the executable
  */
 void printUsage(char *name) {
   fprintf(stderr, "\nUsage:\n\n");
@@ -232,3 +246,5 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
   }
   return 1;
 }
+
+/** @}*/

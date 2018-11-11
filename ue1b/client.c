@@ -17,8 +17,23 @@
 #include <unistd.h>
 #include <zlib.h>
 
-#include "client.h"
 #include "tools.h"
+
+/** @defgroup Client */
+
+/** @addtogroup Client
+ * @brief This requests files over HTTP.
+ *
+ * @details Requests a file from an HTTP server, both specified by the URL.
+ * Can write to a file or to stdout.
+ * Requests gziped content transmission from the HTTP server.
+ *
+ * @author Markus Krainz
+ * @date November 2018
+ *  @{
+ */
+
+#include "client.h"
 
 static void printUsage(char *name);
 
@@ -51,6 +66,7 @@ int main(int argc, char *argv[]) {
       case '?': {
         fprintf(stderr, "[%s, %s, %d] ERROR unknown option or missing argument \n", argv[0],
                 __FILE__, __LINE__);
+        printUsage(argv[0]);
         exit(EXIT_FAILURE);
       } break;
       default:
@@ -103,6 +119,7 @@ int main(int argc, char *argv[]) {
     char *host = strchr(url, '/');
     if (host == NULL) {
       fprintf(stderr, "[%s, %s, %d] invalid URL \n", argv[0], __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
     host += 2;
@@ -157,7 +174,6 @@ int main(int argc, char *argv[]) {
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    /////
     int res = getaddrinfo(host, port_string, &hints, &ai);
     if (res != 0) {
       fprintf(stderr, "[%s, %s, %d]  ERROR could not resolve host \n", argv[0], __FILE__,
@@ -302,7 +318,7 @@ int main(int argc, char *argv[]) {
 /**
  * @brief Prints help including arguments of this program to stderr.
  *
- * @name: c_string of the name of the executable
+ * @param: name c_string of the name of the executable
  */
 void printUsage(char *name) {
   fprintf(stderr, "\nUsage:\n\n");
@@ -314,5 +330,7 @@ void printUsage(char *name) {
   fprintf(stderr, "\t-d can be used instead of -o. Specifies a directory in which the file of the "
                   "same name as the requested file.\n");
   fprintf(stderr, "\t   is written.\n");
-  fprintf(stderr, "\tURL  Url of the requested file. Must start with http:// \n");
+  fprintf(stderr, "\tURL Url of the requested file. Must start with http:// \n");
 }
+
+/** @}*/

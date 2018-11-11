@@ -241,10 +241,20 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    int8_t gzip = 0;
     // read all headers from client
     char buf[1024];
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+      if (startsWith(buf, "Accept-Encoding:")) {
+        fprintf(stderr, "[%s, %s, %d] Client accepts compressed response \n", argv[0], __FILE__,
+                __LINE__);
+        if (strstr(buf, "gzip") != NULL) {
+
+          gzip = 1;
+          fprintf(stderr, "[%s, %s, %d] Client supports GZIP \n", argv[0], __FILE__, __LINE__);
+        }
+      }
       if (strlen(buf) == 2) {
         break;
       }

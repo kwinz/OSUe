@@ -261,8 +261,21 @@ int main(int argc, char *argv[]) {
       strftime(date, sizeof date, "%a, %d %b %y %H:%M:%S %Z", &tm);
       fprintf(sockfile, "Date: %s\r\n", date);
     }
-    fprintf(sockfile, "Content-Length: \r\n");
+    {
+      fseek(inFile, 0, SEEK_END); // seek to end of file
+      long size = ftell(inFile);  // get current file pointer
+      fseek(inFile, 0, SEEK_SET);
+      fprintf(sockfile, "Content-Length: %ld\r\n", size);
+    }
     fprintf(sockfile, "Connection: close\r\n\r\n");
+
+    {
+      char copy_buffer[1024];
+      size_t bytes;
+      while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
+        fwrite(copy_buffer, 1, bytes, sockfile);
+      }
+    }
   }
 
   fprintf(stderr, "[%s, %s, %d]  Finished executing. %s \n", argv[0], __FILE__, __LINE__,

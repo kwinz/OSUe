@@ -4,14 +4,16 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdint.h>
-#include <stdio.h>
 
 static int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace);
-static void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ignore_whitespace);
+static void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case,
+                       int8_t ignore_whitespace);
+static void printUsage(char *name);
 
 int main(int argc, char *argv[]) {
 
@@ -39,6 +41,7 @@ int main(int argc, char *argv[]) {
       case '?': {
         fprintf(stderr, "[%s, %s, %d] ERROR unknown option or missing argument \n", argv[0],
                 __FILE__, __LINE__);
+        printUsage(argv[0]);
         exit(EXIT_FAILURE);
       } break;
       default:
@@ -49,18 +52,21 @@ int main(int argc, char *argv[]) {
     if (ignorewhitespace_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-s' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (ignorecase_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-i' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (o_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-o' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
   }
@@ -105,15 +111,29 @@ int main(int argc, char *argv[]) {
   return EXIT_SUCCESS;
 }
 
+/**
+ * @brief Prints help including arguments of this program to stderr.
+ *
+ * @name: c_string of the name of the executable
+ */
+void printUsage(char *name) {
+  fprintf(stderr, "\nUsage:\n\n");
+  fprintf(stderr, "%s [-s] [-i] [-o outfile] [file...]\n", name);
+  fprintf(stderr, "\t-o output is written to the specified file\n");
+  fprintf(stderr, "\t-s causes program to ignore whitespaces\n");
+  fprintf(stderr, "\t-i program does not differentiate between lower and upper cases letters.\n");
+}
 
 /**
  * @brief Checks one input file's lines for being a palindrome.
- * 
- * @detail The file is read line by line. Memory is allocated dynamicaly internally.
- * Output is written to *out_file. *out_file may be stdout.
  *
- * @param input_file filestream to be read. Must be opened and valid. This parameter may be NULL - in this case this function reads from stdin
- * @param out_file filestream to write result to. Must be opened and valid. If this is NULL then this funtion outputs to stdout
+ * @detail The file is read line by line. Memory is allocated dynamicaly internally.
+ * Output is written to *out_file or stdout.
+ *
+ * @param input_file filestream to be read. Must be opened and valid. This parameter may be NULL -
+ * in this case this function reads from stdin
+ * @param out_file filestream to write result to. Must be opened and valid. If this is NULL then
+ * this funtion outputs to stdout
  * @param ignore_case if != 0 then then upper/lower-case is ignored when processing
  * palindrome
  * @param ignore_whitespace if != 0 then then all whitespace (not including special
@@ -162,7 +182,7 @@ void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ign
 
 /**
  * @brief returns != 0 if the string is a palindrom
- * 
+ *
  * @detail May skip spaces and match different cases as equal depending on parameters.
  *
  * @param c_string pointer to '\0' terminated char sequence which will be tested
@@ -180,7 +200,7 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
 
   while (i < j) {
     if (ignore_whitespace) {
-      //ignore whitespace from left
+      // ignore whitespace from left
       while (c_string[i] == ' ') {
         ++i;
         if (i > j) {
@@ -188,7 +208,7 @@ int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace)
         }
       }
 
-      //ignore whitespace from right
+      // ignore whitespace from right
       while (c_string[j] == ' ') {
         --j;
         if (i > j) {

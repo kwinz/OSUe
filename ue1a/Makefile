@@ -4,7 +4,7 @@ CFLAGS = -Wall -g -std=c99 -pedantic $(DEFS)
 
 OBJECTS = ispalindrom.o
 
-.PHONY: all clean
+.PHONY: all clean docs
 
 all: ispalindrom
 
@@ -16,5 +16,10 @@ ispalindrom: $(OBJECTS)
 
 ispalindrom.o: ispalindrom.c ispalindrom.h 
 
+docs:  html/index.html
+
+html/index.html: ispalindrom.c ispalindrom.h 
+	doxygen Doxyfile
+
 clean:
-	rm -rf *.o ispalindrom
+	rm -rf *.o ispalindrom html latex

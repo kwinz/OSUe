@@ -16,6 +16,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <unistd.h>
+#include <zlib.h>
+
 #include "server.h"
 #include "tools.h"
 
@@ -26,7 +29,7 @@ int main(int argc, char *argv[]) {
 
   // parse arguments
   char *doc_root = NULL;
-  char *port_string = "8080", *indexfile_string = "index.html";
+  const char *port_string = "8080", *indexfile_string = "index.html";
   int port_count = 0, indexfile_count = 0;
 
   // parse command line options
@@ -85,7 +88,7 @@ int main(int argc, char *argv[]) {
   {
     char *endpointer;
     port = strtol(port_string, &endpointer, 0);
-    char *endpointer2 = port_string + strlen(port_string);
+    const char *endpointer2 = port_string + strlen(port_string);
 
     fprintf(stderr, "[%s, %s, %d]  Pointer1 %p \n", argv[0], __FILE__, __LINE__, endpointer);
     fprintf(stderr, "[%s, %s, %d]  Pointer2 %p \n", argv[0], __FILE__, __LINE__, endpointer2);
@@ -247,12 +250,11 @@ int main(int argc, char *argv[]) {
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
       fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
       if (startsWith(buf, "Accept-Encoding:")) {
-        fprintf(stderr, "[%s, %s, %d] Client accepts compressed response \n", argv[0], __FILE__,
+        fprintf(stderr, "[%s, %s, %d] Client sent compression preferences. \n", argv[0], __FILE__,
                 __LINE__);
         if (strstr(buf, "gzip") != NULL) {
-
           gzip = 1;
-          fprintf(stderr, "[%s, %s, %d] Client supports GZIP \n", argv[0], __FILE__, __LINE__);
+          fprintf(stderr, "[%s, %s, %d] Client supports GZIP. \n", argv[0], __FILE__, __LINE__);
         }
       }
       if (strlen(buf) == 2) {
@@ -344,15 +346,71 @@ int main(int argc, char *argv[]) {
         long size = ftell(inFile);  // get current file pointer
         fseek(inFile, 0, SEEK_SET);
         fprintf(sockfile, "Content-Length: %ld\r\n", size);
+        if (gzip) {
+          fprintf(sockfile, "Content-Encoding: deflate\r\n");
+        }
       }
+
       fprintf(sockfile, "Connection: close\r\n\r\n");
 
+      fprintf(stderr, "[%s, %s, %d]  Sending Content... \n", argv[0], __FILE__, __LINE__);
+
       // send content
-      {
+      if (!gzip) {
         char copy_buffer[1024];
         size_t bytes;
         while (!client_dead && 0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
           fwrite(copy_buffer, 1, bytes, sockfile);
+        }
+      } else {
+        // if the tilab had a more recent zlib we could just use
+        // https://github.com/madler/zlib/blob/cacf7f1d4e3d44d871b605da3b647f07d718623f/gzwrite.c
+        int ret;
+        {
+          fprintf(stderr, "[%s, %s, %d] Sending compressed stream... \n", argv[0], __FILE__,
+                  __LINE__);
+
+          uint8_t copy_buffer[1024];
+          uint8_t copy_buffer_compressed[2024];
+          size_t bytes;
+
+          z_stream zs;
+          memset(&zs, 0, sizeof(zs));
+          int compressionlevel = 4;
+          deflateInit(&zs, compressionlevel);
+          // FIXME: check deflateInit for Z_OK
+
+          fprintf(stderr, "[%s, %s, %d]  Initialized Zlib \n", argv[0], __FILE__, __LINE__);
+
+          while (!client_dead &&
+                 0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
+
+            fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__, __LINE__,
+                    bytes);
+
+            zs.next_in = copy_buffer;
+            zs.avail_in = bytes;
+            zs.next_out = copy_buffer_compressed;
+            zs.avail_out = sizeof(copy_buffer_compressed);
+
+            ret = deflate(&zs, Z_PARTIAL_FLUSH);
+            assert(ret != Z_STREAM_ERROR); /* state not clobbered */
+
+            const size_t have = sizeof(copy_buffer_compressed) - zs.avail_out;
+            fprintf(stderr, "[%s, %s, %d]  Deflated once, size is %zu \n", argv[0], __FILE__,
+                    __LINE__, have);
+
+            fwrite(copy_buffer_compressed, 1, have, sockfile);
+
+            fprintf(stderr, "[%s, %s, %d]  Written once \n", argv[0], __FILE__, __LINE__);
+          }
+
+          deflateEnd(&zs);
+        }
+
+        if (ret != Z_STREAM_END) { // an error occurred that was not EOF
+          fprintf(stderr, "[%s, %s, %d]  Error during zlib compression \n", argv[0], __FILE__,
+                  __LINE__);
         }
       }
     }

@@ -351,7 +351,6 @@ int main(int argc, char *argv[]) {
           // case of Content-Encoding: gzip we don't send Content-Length, so we don't have to store
           // the response in memory or compress the body twice.
         } else {
-
           fseek(inFile, 0, SEEK_END); // seek to end of file
           long size = ftell(inFile);  // get current file pointer
           fseek(inFile, 0, SEEK_SET);

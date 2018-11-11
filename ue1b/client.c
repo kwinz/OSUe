@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
     } else {
 
       uint8_t copy_buffer[10240];
-      uint8_t copy_buffer_decompressed[300];
+      uint8_t copy_buffer_decompressed[10240];
       size_t bytes;
 
       int ret;

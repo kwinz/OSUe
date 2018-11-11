@@ -20,6 +20,7 @@
 #include "tools.h"
 
 volatile sig_atomic_t quit = 0;
+volatile sig_atomic_t client_dead = 0;
 
 int main(int argc, char *argv[]) {
 
@@ -100,6 +101,29 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
   }
 
+  {
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa)); // initialize sa to 0
+    sa.sa_handler = &handle_signal;
+    sigaction(SIGINT, &sa, NULL);
+  }
+  {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa)); // initialize sa to 0
+    sa.sa_handler = &handle_signal;
+    sigaction(SIGTERM, &sa, NULL);
+  }
+
+  {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa)); // initialize sa to 0
+    sa.sa_handler = &handle_signal_sigpipe;
+    sigaction(SIGPIPE, &sa, NULL);
+
+    // signal(SIGPIPE, SIG_IGN);
+  }
+
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sockfd < 0) {
     fprintf(stderr, "[%s, %s, %d]  ERROR Could not create socket. %s \n", argv[0], __FILE__,
@@ -138,10 +162,16 @@ int main(int argc, char *argv[]) {
   while (!quit) {
     int connfd = accept(sockfd, NULL, NULL);
     if (connfd < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+
       fprintf(stderr, "[%s, %s, %d]  ERROR Error while accepting incomming request. %s \n",
               argv[0], __FILE__, __LINE__, strerror(errno));
       exit(EXIT_FAILURE);
     }
+
+    client_dead = 0;
 
     // note: use connfd, not sockfd!!
     FILE *sockfile = fdopen(connfd, "r+");
@@ -275,7 +305,7 @@ int main(int argc, char *argv[]) {
       {
         char copy_buffer[1024];
         size_t bytes;
-        while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
+        while (!client_dead && 0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
           fwrite(copy_buffer, 1, bytes, sockfile);
         }
       }
@@ -304,6 +334,10 @@ void send404(int fd, FILE *sockfile) {
 void send501(int fd, FILE *sockfile) {
   sendResponseStringOnly(fd, sockfile, "HTTP/1.1 501 Not implemented\r\n");
 }
+
+void handle_signal(int signal) { quit = 1; }
+
+void handle_signal_sigpipe(int signal) { client_dead = 1; }
 
 void sendResponseStringOnly(int fd, FILE *sockfile, char *response_string) {
   drainBuffer(fd, sockfile);

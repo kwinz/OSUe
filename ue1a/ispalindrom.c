@@ -7,6 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+
+static int8_t isPalindrom(char *c_string, int8_t ignore_case, int8_t ignore_whitespace);
+static void handleFile(FILE *input_file, FILE *out_file, int8_t ignore_case, int8_t ignore_whitespace);
 
 int main(int argc, char *argv[]) {
 

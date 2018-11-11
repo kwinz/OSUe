@@ -20,6 +20,8 @@
 #include "client.h"
 #include "tools.h"
 
+static void printUsage(char *name);
+
 int main(int argc, char *argv[]) {
 
   // parse arguments
@@ -59,18 +61,21 @@ int main(int argc, char *argv[]) {
     if (port_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-p' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (file_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-o' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     if (dir_count > 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide at most one '-d' argument \n", argv[0],
               __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
@@ -78,6 +83,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr,
               "[%s, %s, %d]  ERROR Provide either -o FILE or -d DIR argument but not both \n",
               argv[0], __FILE__, __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
@@ -86,6 +92,7 @@ int main(int argc, char *argv[]) {
     if (positional_args_count != 1) {
       fprintf(stderr, "[%s, %s, %d]  ERROR Provide mandatory URL parameter \n", argv[0], __FILE__,
               __LINE__);
+      printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
@@ -290,4 +297,22 @@ int main(int argc, char *argv[]) {
 
     exit(EXIT_SUCCESS);
   }
+}
+
+/**
+ * @brief Prints help including arguments of this program to stderr.
+ *
+ * @name: c_string of the name of the executable
+ */
+void printUsage(char *name) {
+  fprintf(stderr, "\nUsage:\n\n");
+  fprintf(stderr, "%s [-p PORT] [-o FILE | -d DIR] URL\n", name);
+  fprintf(stderr, "\t-p Can be used to specify the port on which the client shall attempt to "
+                  "connect. Defaults to 80.\n");
+  fprintf(stderr,
+          "\t-o filename to which the transmitted content is written. Defaults to stdout.\n");
+  fprintf(stderr, "\t-d can be used instead of -o. Specifies a directory in which the file of the "
+                  "same name as the requested file.\n");
+  fprintf(stderr, "\t   is written.\n");
+  fprintf(stderr, "\tURL  Url of the requested file. Must start with http:// \n");
 }

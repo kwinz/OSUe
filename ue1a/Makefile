@@ -1,3 +1,7 @@
+# Author Markus Krainz
+# Date 2018
+# Builds ispalindrome
+
 CC = gcc
 DEFS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_VID_SOURCE -D_POSIX_C_SOURCE=200809L
 CFLAGS = -Wall -g -std=c99 -pedantic $(DEFS)

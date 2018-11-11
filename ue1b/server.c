@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
         fseek(inFile, 0, SEEK_SET);
         fprintf(sockfile, "Content-Length: %ld\r\n", size);
         if (gzip) {
-          fprintf(sockfile, "Content-Encoding: deflate\r\n");
+          fprintf(sockfile, "Content-Encoding: gzip\r\n");
         }
       }
 
@@ -370,14 +370,18 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "[%s, %s, %d] Sending compressed stream... \n", argv[0], __FILE__,
                   __LINE__);
 
-          uint8_t copy_buffer[1024];
-          uint8_t copy_buffer_compressed[2024];
+          uint8_t copy_buffer[10240];
+          uint8_t copy_buffer_compressed[20240];
           size_t bytes;
 
           z_stream zs;
           memset(&zs, 0, sizeof(zs));
-          int compressionlevel = 4;
-          deflateInit(&zs, compressionlevel);
+          int compression_level = 4;
+          int mem_level = 4;
+          // memlevel is from 1-9
+          // deflateInit(&zs, compression_level);
+          deflateInit2(&zs, compression_level, Z_DEFLATED, MAX_WBITS + 16, mem_level,
+                       Z_DEFAULT_STRATEGY);
           // FIXME: check deflateInit for Z_OK
 
           fprintf(stderr, "[%s, %s, %d]  Initialized Zlib \n", argv[0], __FILE__, __LINE__);

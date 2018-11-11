@@ -250,6 +250,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "[%s, %s, %d] ERROR Problem with request_method_string. \n", argv[0],
                   __FILE__, __LINE__);
           send400(connfd, sockfile);
+          continue;
         } else {
           if (verbose) {
             fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
@@ -260,6 +261,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0],
                     __FILE__, __LINE__);
             send400(connfd, sockfile);
+            continue;
           } else {
             if (verbose) {
               fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
@@ -270,6 +272,7 @@ int main(int argc, char *argv[]) {
               fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0],
                       __FILE__, __LINE__);
               send400(connfd, sockfile);
+              continue;
             } else {
               if (verbose) {
                 fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
@@ -282,6 +285,7 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "[%s, %s, %d] ERROR invalid protocol_string \n", argv[0], __FILE__,
                         __LINE__);
                 send400(connfd, sockfile);
+                continue;
               } else {
                 if (strcmp(request_method_string, "GET") != 0) {
                   fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
@@ -289,6 +293,7 @@ int main(int argc, char *argv[]) {
                   fprintf(stderr, "[%s, %s, %d] ERROR Can't handle this request. \n", argv[0],
                           __FILE__, __LINE__);
                   send501(connfd, sockfile);
+                  continue;
                 }
               }
             }
@@ -353,8 +358,7 @@ int main(int argc, char *argv[]) {
                 __LINE__, filestringFinal);
 
         send404(connfd, sockfile);
-        // FIXME handle next request instead
-        return EXIT_SUCCESS;
+        continue;
       }
     }
 
@@ -496,12 +500,7 @@ int main(int argc, char *argv[]) {
             }
           }
 
-          deflateEnd(&zs);
-        }
-
-        if (ret != Z_STREAM_END) { // an error occurred that was not EOF
-          fprintf(stderr, "[%s, %s, %d]  Error during zlib compression \n", argv[0], __FILE__,
-                  __LINE__);
+          ret = deflateEnd(&zs);
         }
       }
     }

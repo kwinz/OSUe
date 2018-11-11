@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
   // parse arguments
   char *url = NULL;
   char *port_string = "80", *file_string, *dir_string;
-  int port_count = 0, file_count = 0, dir_count = 0;
+  int port_count = 0, file_count = 0, dir_count = 0, verbose = 0;
   {
-    const char *optstring = "p:o:d:";
+    const char *optstring = "p:o:d:v";
     int c;
 
     // getopt returns -1 if there is no more character
@@ -62,6 +62,9 @@ int main(int argc, char *argv[]) {
       case 'd': {
         ++dir_count;
         dir_string = optarg;
+      } break;
+      case 'v': {
+        verbose = 1;
       } break;
       case '?': {
         fprintf(stderr, "[%s, %s, %d] ERROR unknown option or missing argument \n", argv[0],
@@ -106,19 +109,20 @@ int main(int argc, char *argv[]) {
     const int positional_args_count = argc - optind;
 
     if (positional_args_count != 1) {
-      fprintf(stderr, "[%s, %s, %d]  ERROR Provide mandatory URL parameter \n", argv[0], __FILE__,
+      fprintf(stderr, "[%s, %s, %d] ERROR Provide mandatory URL parameter \n", argv[0], __FILE__,
               __LINE__);
       printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
 
     url = argv[optind];
-
-    fprintf(stderr, "[%s, %s, %d]  url is %s \n", argv[0], __FILE__, __LINE__, url);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d] url is %s \n", argv[0], __FILE__, __LINE__, url);
+    }
 
     char *host = strchr(url, '/');
     if (host == NULL) {
-      fprintf(stderr, "[%s, %s, %d] invalid URL \n", argv[0], __FILE__, __LINE__);
+      fprintf(stderr, "[%s, %s, %d] ERROR invalid URL \n", argv[0], __FILE__, __LINE__);
       printUsage(argv[0]);
       exit(EXIT_FAILURE);
     }
@@ -132,10 +136,12 @@ int main(int argc, char *argv[]) {
       directory++;
     }
 
-    fprintf(stderr, "[%s, %s, %d]  host is %s \n", argv[0], __FILE__, __LINE__, host);
-    fprintf(stderr, "[%s, %s, %d]  directory is %s \n", argv[0], __FILE__, __LINE__, directory);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d]  host is %s \n", argv[0], __FILE__, __LINE__, host);
+      fprintf(stderr, "[%s, %s, %d]  directory is %s \n", argv[0], __FILE__, __LINE__, directory);
+    }
 
-    char filestringFinal[1024];
+    char filestringFinal[1024] = {0};
     {
       if (dir_count == 1) {
         // fixme check length
@@ -161,9 +167,7 @@ int main(int argc, char *argv[]) {
         }
 
         // FIXME don't hardcode character array
-      }
-
-      if (file_count == 1) {
+      } else if (file_count == 1) {
         strcpy(filestringFinal, file_string);
       }
     }
@@ -176,8 +180,7 @@ int main(int argc, char *argv[]) {
 
     int res = getaddrinfo(host, port_string, &hints, &ai);
     if (res != 0) {
-      fprintf(stderr, "[%s, %s, %d]  ERROR could not resolve host \n", argv[0], __FILE__,
-              __LINE__);
+      fprintf(stderr, "[%s, %s, %d] ERROR could not resolve host \n", argv[0], __FILE__, __LINE__);
       exit(EXIT_FAILURE);
     }
 
@@ -185,7 +188,7 @@ int main(int argc, char *argv[]) {
     int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 
     if (sockfd < 0) {
-      fprintf(stderr, "[%s, %s, %d]  ERROR creating socket \n", argv[0], __FILE__, __LINE__);
+      fprintf(stderr, "[%s, %s, %d] ERROR creating socket \n", argv[0], __FILE__, __LINE__);
       exit(EXIT_FAILURE);
     }
 
@@ -195,7 +198,7 @@ int main(int argc, char *argv[]) {
     // inet_aton("216.58.201.67", &server_addr.sin_addr.s_addr);
 
     if (connect(sockfd, ai->ai_addr, ai->ai_addrlen) < 0) {
-      fprintf(stderr, "[%s, %s, %d]  ERROR connecting \n", argv[0], __FILE__, __LINE__);
+      fprintf(stderr, "[%s, %s, %d] ERROR connecting \n", argv[0], __FILE__, __LINE__);
       exit(EXIT_FAILURE);
     }
 
@@ -203,10 +206,12 @@ int main(int argc, char *argv[]) {
 
     FILE *sockfile = fdopen(sockfd, "r+");
 
+    fprintf(stderr, "Sending GET /%s HTTP/1.1\r\n", directory);
+
     fprintf(sockfile, "GET /%s HTTP/1.1\r\n", directory);
     fprintf(sockfile, "Host: %s\r\n", host);
 
-    fprintf(sockfile, "Accept-Encoding: gzip\r\n");
+    // fprintf(sockfile, "Accept-Encoding: gzip\r\n");
 
     fprintf(sockfile, "Connection: close\r\n\r\n");
     fflush(sockfile); // send all buffered data
@@ -229,7 +234,6 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "[%s, %s, %d] Got HTTP return code %ld , being %s \n", argv[0], __FILE__,
             __LINE__, response_code, afterStatusCode);
-
     if (response_code != 200) {
       // FIXME textual description of response code
       fprintf(stderr, "[%s, %s, %d] HTTP response code is not 200 \n", argv[0], __FILE__,
@@ -239,18 +243,20 @@ int main(int argc, char *argv[]) {
 
     FILE *outputFile = stdout;
 
-    if (strlen(filestringFinal) > 0) {
+    if (dir_count != 0 || file_count != 0) {
       outputFile = fopen(filestringFinal, "w");
       if (outputFile == NULL) {
-        fprintf(stderr, "[%s, %s, %d]  could not open outfile %s \n", argv[0], __FILE__, __LINE__,
-                filestringFinal);
+        fprintf(stderr, "[%s, %s, %d] ERROR Could not open outfile %s \n", argv[0], __FILE__,
+                __LINE__, filestringFinal);
         exit(EXIT_FAILURE);
       }
     }
 
     int8_t server_used_gzip = 0;
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-      fputs(buf, stderr);
+      if (verbose) {
+        fputs(buf, stderr);
+      }
 
       if (startsWith(buf, "Content-Encoding: gzip")) {
         fprintf(stderr, "[%s, %s, %d] Server sending gziped content \n", argv[0], __FILE__,
@@ -260,7 +266,9 @@ int main(int argc, char *argv[]) {
 
       // empty line still has two characters for new line
       if (strlen(buf) == 2) {
-        fprintf(stderr, "[%s, %s, %d] header ended \n", argv[0], __FILE__, __LINE__);
+        if (verbose) {
+          fprintf(stderr, "[%s, %s, %d] header ended \n", argv[0], __FILE__, __LINE__);
+        }
         break;
       }
     }
@@ -283,9 +291,10 @@ int main(int argc, char *argv[]) {
       inflateInit2(&zs, MAX_WBITS + 16);
 
       while (0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), sockfile))) {
-
-        fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__, __LINE__,
-                bytes);
+        if (verbose) {
+          fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__, __LINE__,
+                  bytes);
+        }
 
         zs.next_in = copy_buffer;
         zs.avail_in = bytes;
@@ -298,8 +307,10 @@ int main(int argc, char *argv[]) {
           assert(ret != Z_STREAM_ERROR); /* state not clobbered */
 
           const size_t have = sizeof(copy_buffer_decompressed) - zs.avail_out;
-          fprintf(stderr, "[%s, %s, %d]  Inflated once, size is %zu \n", argv[0], __FILE__,
-                  __LINE__, have);
+          if (verbose) {
+            fprintf(stderr, "[%s, %s, %d]  Inflated once, size is %zu \n", argv[0], __FILE__,
+                    __LINE__, have);
+          }
 
           fwrite(copy_buffer_decompressed, 1, have, outputFile);
         } while (zs.avail_out == 0);
@@ -322,13 +333,14 @@ int main(int argc, char *argv[]) {
  */
 void printUsage(char *name) {
   fprintf(stderr, "\nUsage:\n\n");
-  fprintf(stderr, "%s [-p PORT] [-o FILE | -d DIR] URL\n", name);
+  fprintf(stderr, "%s [-p PORT] [-o FILE | -d DIR] [-v] URL\n", name);
   fprintf(stderr, "\t-p Can be used to specify the port on which the client shall attempt to "
                   "connect. Defaults to 80.\n");
   fprintf(stderr,
           "\t-o filename to which the transmitted content is written. Defaults to stdout.\n");
   fprintf(stderr, "\t-d can be used instead of -o. Specifies a directory in which the file of the "
                   "same name as the requested file.\n");
+  fprintf(stderr, "\t-v  Verbose output\n");
   fprintf(stderr, "\t   is written.\n");
   fprintf(stderr, "\tURL Url of the requested file. Must start with http:// \n");
 }

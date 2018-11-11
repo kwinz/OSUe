@@ -53,4 +53,17 @@ int8_t strEndsWith(char *str, char *suffix) {
   return strcmp(str, suffix) == 0;
 }
 
+/**
+ * @brief fprintfs to stderr if verbose !=0
+ *
+ * @param verbose this function does nothing if verbose==0
+ * @param fmt printf-style format string
+ * @param ... variable arguments for fprintf
+ */
+void printVerbose(int verbose, const char *fmt, va_list args) {
+  if (verbose) {
+    fprintf(stderr, fmt, args);
+  }
+}
+
 /** @}*/

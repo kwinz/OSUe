@@ -60,11 +60,11 @@ int main(int argc, char *argv[]) {
   // parse arguments
   char *doc_root = NULL;
   const char *port_string = "8080", *indexfile_string = "index.html";
-  int port_count = 0, indexfile_count = 0;
+  int port_count = 0, indexfile_count = 0, verbose = 0;
 
   // parse command line options
   {
-    const char *optstring = "p:i:";
+    const char *optstring = "p:i:v";
     int c;
 
     // getopt returns -1 if there is no more character
@@ -78,6 +78,9 @@ int main(int argc, char *argv[]) {
       case 'i': {
         ++indexfile_count;
         indexfile_string = optarg;
+      } break;
+      case 'v': {
+        verbose = 1;
       } break;
       case '?': {
         fprintf(stderr, "[%s, %s, %d] ERROR unknown option or missing argument \n", argv[0],
@@ -114,7 +117,9 @@ int main(int argc, char *argv[]) {
 
     doc_root = argv[optind];
 
-    fprintf(stderr, "[%s, %s, %d]  DOCROOT is %s \n", argv[0], __FILE__, __LINE__, doc_root);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d]  DOCROOT is %s \n", argv[0], __FILE__, __LINE__, doc_root);
+    }
   }
 
   // parse port
@@ -124,11 +129,13 @@ int main(int argc, char *argv[]) {
     port = strtol(port_string, &endpointer, 0);
     const char *endpointer2 = port_string + strlen(port_string);
 
-    fprintf(stderr, "[%s, %s, %d]  Pointer1 %p \n", argv[0], __FILE__, __LINE__, endpointer);
-    fprintf(stderr, "[%s, %s, %d]  Pointer2 %p \n", argv[0], __FILE__, __LINE__, endpointer2);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d]  Pointer1 %p \n", argv[0], __FILE__, __LINE__, endpointer);
+      fprintf(stderr, "[%s, %s, %d]  Pointer2 %p \n", argv[0], __FILE__, __LINE__, endpointer2);
+    }
 
     // FIXME: set narrower limits
-    if (port == LONG_MIN || port == LONG_MAX || (endpointer != endpointer2)) {
+    if (port < 0 || port > 65535 || (endpointer != endpointer2)) {
 
       fprintf(stderr, "[%s, %s, %d]  ERROR Could not parse port. \n", argv[0], __FILE__, __LINE__);
 
@@ -137,7 +144,9 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d]  Port is %ld\n", argv[0], __FILE__, __LINE__, port);
+    }
   }
 
   // set signal handlers
@@ -197,7 +206,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  fprintf(stderr, "[%s, %s, %d]  Waiting for incoming clients. \n", argv[0], __FILE__, __LINE__);
+  if (verbose) {
+    fprintf(stderr, "[%s, %s, %d] Waiting for incoming clients. \n", argv[0], __FILE__, __LINE__);
+  }
 
   while (!quit) {
 
@@ -208,8 +219,8 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
-      fprintf(stderr, "[%s, %s, %d]  ERROR Error while accepting incomming request. %s \n",
-              argv[0], __FILE__, __LINE__, strerror(errno));
+      fprintf(stderr, "[%s, %s, %d] ERROR Error while accepting incomming request. %s \n", argv[0],
+              __FILE__, __LINE__, strerror(errno));
       exit(EXIT_FAILURE);
     }
 
@@ -219,12 +230,14 @@ int main(int argc, char *argv[]) {
     // note: use connfd, not sockfd!!
     FILE *sockfile = fdopen(connfd, "r+");
     if (sockfile == NULL) {
-      fprintf(stderr, "[%s, %s, %d]  ERROR Could not open stream with incoming connection. %s \n",
+      fprintf(stderr, "[%s, %s, %d] ERROR Could not open stream with incoming connection. %s \n",
               argv[0], __FILE__, __LINE__, strerror(errno));
       exit(EXIT_FAILURE);
     }
 
-    fprintf(stderr, "[%s, %s, %d]  Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d] Got client. Reading.. \n", argv[0], __FILE__, __LINE__);
+    }
 
     // read and parse first line from client
     char *request_method_string, *path_file_string, *protocol_string;
@@ -238,24 +251,30 @@ int main(int argc, char *argv[]) {
                   __FILE__, __LINE__);
           send400(connfd, sockfile);
         } else {
-          fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__, __LINE__,
-                  request_method_string);
+          if (verbose) {
+            fprintf(stderr, "[%s, %s, %d] request_method_string %s \n", argv[0], __FILE__,
+                    __LINE__, request_method_string);
+          }
           path_file_string = strtok(NULL, " ");
           if (path_file_string == NULL) {
             fprintf(stderr, "[%s, %s, %d] ERROR Problem with path_file_string \n", argv[0],
                     __FILE__, __LINE__);
             send400(connfd, sockfile);
           } else {
-            fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
-                    path_file_string);
+            if (verbose) {
+              fprintf(stderr, "[%s, %s, %d] path_file_string %s \n", argv[0], __FILE__, __LINE__,
+                      path_file_string);
+            }
             protocol_string = strtok(NULL, " ");
             if (path_file_string == NULL) {
               fprintf(stderr, "[%s, %s, %d] ERROR Problem with protocol_string \n", argv[0],
                       __FILE__, __LINE__);
               send400(connfd, sockfile);
             } else {
-              fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
-                      protocol_string);
+              if (verbose) {
+                fprintf(stderr, "[%s, %s, %d] protocol_string %s \n", argv[0], __FILE__, __LINE__,
+                        protocol_string);
+              }
 
               if (!startsWith(protocol_string, "HTTP/1.1")) {
                 fprintf(stderr, "[%s, %s, %d] protocol_string %zu %zu \n", argv[0], __FILE__,
@@ -282,13 +301,19 @@ int main(int argc, char *argv[]) {
     // read all headers from client
     char buf[1024];
     while (fgets(buf, sizeof(buf), sockfile) != NULL) {
-      fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+      if (verbose) {
+        fprintf(stderr, "[%s, %s, %d] Read %s \n", argv[0], __FILE__, __LINE__, buf);
+      }
       if (startsWith(buf, "Accept-Encoding:")) {
-        fprintf(stderr, "[%s, %s, %d] Client sent compression preferences. \n", argv[0], __FILE__,
-                __LINE__);
+        if (verbose) {
+          fprintf(stderr, "[%s, %s, %d] Client sent compression preferences. \n", argv[0],
+                  __FILE__, __LINE__);
+        }
         if (strstr(buf, "gzip") != NULL) {
           gzip = 1;
-          fprintf(stderr, "[%s, %s, %d] Client supports GZIP. \n", argv[0], __FILE__, __LINE__);
+          if (verbose) {
+            fprintf(stderr, "[%s, %s, %d] Client supports GZIP. \n", argv[0], __FILE__, __LINE__);
+          }
         }
       }
       if (strlen(buf) == 2) {
@@ -305,9 +330,10 @@ int main(int argc, char *argv[]) {
     char filestringFinal[1000];
     {
       // FIXME bufferoverflow protection
-
-      fprintf(stderr, "[%s, %s, %d] path_file_string is %s \n", argv[0], __FILE__, __LINE__,
-              path_file_string);
+      if (verbose) {
+        fprintf(stderr, "[%s, %s, %d] path_file_string is %s \n", argv[0], __FILE__, __LINE__,
+                path_file_string);
+      }
 
       strcpy(filestringFinal, doc_root);
       strcat(filestringFinal, path_file_string);
@@ -315,14 +341,16 @@ int main(int argc, char *argv[]) {
       // FIXME put into utility function
       if (path_file_string && *path_file_string != '\0' &&
           '/' == *(path_file_string + strlen(path_file_string) - 1)) {
-        fprintf(stderr, "[%s, %d] path_file_string was a directory \n", __FILE__, __LINE__);
+        if (verbose) {
+          fprintf(stderr, "[%s, %d] path_file_string was a directory \n", __FILE__, __LINE__);
+        }
         strcat(filestringFinal, indexfile_string);
       }
 
       inFile = fopen(filestringFinal, "rb");
       if (inFile == NULL) {
-        fprintf(stderr, "[%s, %s, %d]  could not open outfile %s \n", argv[0], __FILE__, __LINE__,
-                filestringFinal);
+        fprintf(stderr, "[%s, %s, %d] ERROR Could not open outfile %s \n", argv[0], __FILE__,
+                __LINE__, filestringFinal);
 
         send404(connfd, sockfile);
         // FIXME handle next request instead
@@ -330,8 +358,10 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    fprintf(stderr, "[%s, %s, %d] Opened file. Sending %s \n", argv[0], __FILE__, __LINE__,
-            filestringFinal);
+    if (verbose) {
+      fprintf(stderr, "[%s, %s, %d] Opened file. Sending %s \n", argv[0], __FILE__, __LINE__,
+              filestringFinal);
+    }
 
     // send response
     {
@@ -394,7 +424,9 @@ int main(int argc, char *argv[]) {
 
       fprintf(sockfile, "Connection: close\r\n\r\n");
 
-      fprintf(stderr, "[%s, %s, %d]  Sending Content... \n", argv[0], __FILE__, __LINE__);
+      if (verbose) {
+        fprintf(stderr, "[%s, %s, %d]  Sending Content... \n", argv[0], __FILE__, __LINE__);
+      }
 
       // send content
       if (!gzip) {
@@ -408,8 +440,10 @@ int main(int argc, char *argv[]) {
         // https://github.com/madler/zlib/blob/cacf7f1d4e3d44d871b605da3b647f07d718623f/gzwrite.c
         int ret;
         {
-          fprintf(stderr, "[%s, %s, %d] Sending compressed stream... \n", argv[0], __FILE__,
-                  __LINE__);
+          if (verbose) {
+            fprintf(stderr, "[%s, %s, %d] Sending compressed stream... \n", argv[0], __FILE__,
+                    __LINE__);
+          }
 
           uint8_t copy_buffer[10240];
           uint8_t copy_buffer_compressed[20240];
@@ -425,13 +459,21 @@ int main(int argc, char *argv[]) {
                        Z_DEFAULT_STRATEGY);
           // FIXME: check deflateInit for Z_OK
 
-          fprintf(stderr, "[%s, %s, %d]  Initialized Zlib \n", argv[0], __FILE__, __LINE__);
+          if (verbose) {
+            fprintf(stderr, "[%s, %s, %d]  Initialized Zlib \n", argv[0], __FILE__, __LINE__);
+          }
 
           while (!client_dead &&
                  0 < (bytes = fread(copy_buffer, 1, sizeof(copy_buffer), inFile))) {
 
-            fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__, __LINE__,
-                    bytes);
+            if (verbose) {
+              fprintf(stderr, "[%s, %s, %d]  Read once, size is %zu \n", argv[0], __FILE__,
+                      __LINE__, bytes);
+            }
+
+            if (bytes == 0) {
+              break;
+            }
 
             zs.next_in = copy_buffer;
             zs.avail_in = bytes;
@@ -442,12 +484,16 @@ int main(int argc, char *argv[]) {
             assert(ret != Z_STREAM_ERROR); /* state not clobbered */
 
             const size_t have = sizeof(copy_buffer_compressed) - zs.avail_out;
-            fprintf(stderr, "[%s, %s, %d]  Deflated once, size is %zu \n", argv[0], __FILE__,
-                    __LINE__, have);
+            if (verbose) {
+              fprintf(stderr, "[%s, %s, %d]  Deflated once, size is %zu \n", argv[0], __FILE__,
+                      __LINE__, have);
+            }
 
             fwrite(copy_buffer_compressed, 1, have, sockfile);
 
-            fprintf(stderr, "[%s, %s, %d]  Written once \n", argv[0], __FILE__, __LINE__);
+            if (verbose) {
+              fprintf(stderr, "[%s, %s, %d]  Written once \n", argv[0], __FILE__, __LINE__);
+            }
           }
 
           deflateEnd(&zs);
@@ -463,12 +509,12 @@ int main(int argc, char *argv[]) {
     // closing stream
     { fclose(sockfile); }
 
-    fprintf(stderr, "[%s, %s, %d]  Finished serving client request. Errno: %s\n", argv[0],
+    fprintf(stderr, "[%s, %s, %d]  Finished serving client request. Last Errno: %s\n", argv[0],
             __FILE__, __LINE__, strerror(errno));
   }
 
-  fprintf(stderr, "[%s, %s, %d]  Finished executing. Errno: %s \n", argv[0], __FILE__, __LINE__,
-          strerror(errno));
+  fprintf(stderr, "[%s, %s, %d]  Finished executing. Last Errno: %s \n", argv[0], __FILE__,
+          __LINE__, strerror(errno));
   return EXIT_SUCCESS;
 }
 
@@ -497,22 +543,16 @@ void sendResponseHeaderOnly(int fd, FILE *sockfile, char *response_string) {
 }
 
 void drainBuffer(int fd, FILE *sockfile) {
-  fprintf(stderr, "[%s, %d] Before draining buffer \n", __FILE__, __LINE__);
-
   int flags = fcntl(fd, F_GETFL, 0);
   fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
   static char buf[1024];
   size_t bytes_read;
   while ((bytes_read = fread(buf, sizeof(char), sizeof(buf) / sizeof(char), sockfile)) != 0) {
-    fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
   }
-  fprintf(stderr, "[%s, %d] Read %zu bytes \n", __FILE__, __LINE__, bytes_read);
 
-  fprintf(stderr, "[%s, %d] Setting blocking again \n", __FILE__, __LINE__);
+  // Setting blocking again
   fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
-
-  fprintf(stderr, "[%s, %d] After draining buffer \n", __FILE__, __LINE__);
 }
 
 /**
@@ -522,12 +562,13 @@ void drainBuffer(int fd, FILE *sockfile) {
  */
 void printUsage(char *name) {
   fprintf(stderr, "\nUsage:\n\n");
-  fprintf(stderr, "%s [-p PORT] [-i INDEX] DOC_ROOT\n", name);
+  fprintf(stderr, "%s [-p PORT] [-i INDEX] [-v] DOC_ROOT\n", name);
   fprintf(stderr, "\t-p Can be used to specify the port on which the server shall listen for "
                   "clients.\n\t Defaults to 8080.\n");
   fprintf(stderr,
           "\t-i specifies filename which is a appended to request path if\n\t request path "
           "is a directory.\n");
+  fprintf(stderr, "\t-v  Verbose output\n");
   fprintf(
       stderr,
       "\tDOC_ROOT Path of the document root directory. This contains the files to be served. \n");

@@ -6,3 +6,4 @@ server
 .nfs*
 html
 latex
+forkFFT

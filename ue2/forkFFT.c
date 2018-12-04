@@ -23,34 +23,23 @@
  * @{
  */
 
-/*
- * FIXME: Each function shall be documented either before the declaration or the implementation. It
-should include purpose (@brief, @details tags), description of parameters and return value (@param,
-@return tags) and description of global variables the function uses (@details tag).
- *
- */
-
 int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Running main()... My pid is: %d\n", (int)getpid());
 
-  size_t linebufferSize = 0;
-  char *line = NULL;
-
   Myvect_t myVect;
   init_myvect(&myVect);
 
-  int linecount = 0;
-  // fprintf(stderr, "Waiting for a line.... My pid is: %d\n", (int)getpid());
-
-  while ((getline(&line, &linebufferSize, stdin)) != -1) {
-    ++linecount;
-    // fprintf(stderr, "Got a line. My pid is: %d\n", (int)getpid());
-
-    char *endPointer;
-    const float valueOfThisLine = strtof(line, &endPointer);
-
-    push_myvect(&myVect, valueOfThisLine);
+  // read input
+  {
+    size_t linebufferSize = 0;
+    char *line = NULL;
+    while ((getline(&line, &linebufferSize, stdin)) != -1) {
+      char *endPointer;
+      const float valueOfThisLine = strtof(line, &endPointer);
+      push_myvect(&myVect, valueOfThisLine);
+    }
+    free(line);
   }
 
   fprintf(stderr, "Read %zu floats from stdin. My pid is: %d\n", myVect.size, (int)getpid());
@@ -167,15 +156,6 @@ int main(int argc, char *argv[]) {
       fprintf(childOddFp, "%f\n", myVect.data[i]);
     }
 
-    // fputc(EOF, childEvenFp);
-    // fputc(EOF, childOddFp);
-
-    // fflush(childEvenFp);
-    // fflush(childOddFp);
-
-    // int lol = myVect.data[i];
-    // fprintf(stderr, "LOOOOOOOOOLLLL %d", pipefdEven[0]);
-
     fclose(childEvenFp);
     fclose(childOddFp);
     close(evenStdin);
@@ -195,6 +175,8 @@ int main(int argc, char *argv[]) {
   {
     FILE *childEvenFp = fdopen(evenStdout, "r");
     FILE *childOddFp = fdopen(oddStdout, "r");
+    size_t linebufferSize = 0;
+    char *line = NULL;
 
     for (size_t k = 0; k < resultSize / 2; ++k) {
       char *endPointer;
@@ -217,6 +199,8 @@ int main(int argc, char *argv[]) {
       resultOdd[k] = strtof(line, &endPointer);
       resultOddImaginary[k] = strtof(endPointer, &endPointer);
     }
+
+    free(line);
 
     fclose(childEvenFp);
     fclose(childOddFp);

@@ -41,6 +41,8 @@ static void freedata_myvect(Myvect_t *myvect) {
 
 int main(int argc, char *argv[]) {
 
+  fprintf(stderr, "Running main()... My pid is: %d\n", (int)getpid());
+
   size_t linebufferSize = DEFAULT_LINEBUFFER_SIZE;
   char *line = malloc(linebufferSize);
 
@@ -48,21 +50,26 @@ int main(int argc, char *argv[]) {
   init_myvect(&myVect);
 
   int linecount = 0;
+  fprintf(stderr, "Waiting for a line.... My pid is: %d\n", (int)getpid());
+
   while ((getline(&line, &linebufferSize, stdin)) != -1) {
     ++linecount;
+    fprintf(stderr, "Got a line. My pid is: %d\n", (int)getpid());
 
     char *endPointer;
-    const float valueOfThisLine = strtof(&line, &endPointer);
+    const float valueOfThisLine = strtof(line, &endPointer);
 
     push_myvect(&myVect, valueOfThisLine);
   }
+
+  fprintf(stderr, "Read %zu floats from stdin. My pid is: %d\n", myVect.size, (int)getpid());
 
   if (myVect.size == 0) {
     return EXIT_FAILURE;
   }
 
   if (myVect.size == 1) {
-    fprintf(stdout, "%f", myVect.data[myVect.size]);
+    fprintf(stdout, "%f", myVect.data[0]);
     return EXIT_SUCCESS;
   }
 
@@ -90,14 +97,14 @@ int main(int argc, char *argv[]) {
       dup2(pipefdEven[0], STDIN_FILENO);
       close(pipefdEven[0]);
 
-      execlp(argv[0], argv[0], "", NULL);
+      execlp(argv[0], argv[0], NULL);
     } else {
       // we are a parent
     }
   }
 
   int pipefdOdd[2];
-  pid_t pidOdd;
+  pid_t pidOdd = 0;
   {
     pipe(pipefdOdd);
     fflush(stdout);
@@ -108,8 +115,8 @@ int main(int argc, char *argv[]) {
 
       // close unused write end
       // close(pipefdOdd[1]);
-      dup2(pipefdEven[1], STDOUT_FILENO);
-      close(pipefdEven[1]);
+      dup2(pipefdOdd[1], STDOUT_FILENO);
+      close(pipefdOdd[1]);
 
       // old descriptor - read end to new descriptor
       dup2(pipefdOdd[0], STDIN_FILENO);
@@ -121,16 +128,33 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  fprintf(stderr, "Send data to children...\n");
   // send data to children
-  for (size_t i = 0; i < myVect.size; i += 2) {
-    fprintf(pipefdEven[0], "%f", myVect.data[i]);
-  }
-  for (size_t i = 1; i < myVect.size; i += 2) {
-    fprintf(pipefdOdd[0], "%f", myVect.data[i]);
-  }
+  {
+    FILE *childEvenFp = fdopen(pipefdEven[1], "w");
+    FILE *childOddFp = fdopen(pipefdOdd[1], "w");
 
-  fputc(EOF, pipefdEven[0]);
-  fputc(EOF, pipefdOdd[0]);
+    for (size_t i = 0; i < myVect.size; i += 2) {
+      fprintf(childEvenFp, "%f\n", myVect.data[i]);
+    }
+    for (size_t i = 1; i < myVect.size; i += 2) {
+      fprintf(childOddFp, "%f\n", myVect.data[i]);
+    }
+
+    fputc(EOF, childEvenFp);
+    fputc(EOF, childOddFp);
+
+    fflush(childEvenFp);
+    fflush(childOddFp);
+
+    // int lol = myVect.data[i];
+    // fprintf(stderr, "LOOOOOOOOOLLLL %d", pipefdEven[0]);
+
+    fclose(childEvenFp);
+    fclose(childOddFp);
+    close(pipefdEven[1]);
+    close(pipefdOdd[1]);
+  }
 
   const size_t resultSize = myVect.size;
   freedata_myvect(&myVect);
@@ -138,28 +162,36 @@ int main(int argc, char *argv[]) {
   // C99 Variable Length Array
   // float results[resultSize];
 
-  size_t k = 0;
-  for (; k < resultSize; ++k) {
-    float result;
-    char *endPointer;
+  fprintf(stderr, "Read data from children...\n");
+  // read data from children
+  {
+    FILE *childEvenFp = fdopen(pipefdEven[0], "r");
+    FILE *childOddFp = fdopen(pipefdOdd[0], "r");
 
-    int res = getline(&line, &linebufferSize, pipefdEven[1]);
-    if (res == -1) {
-      // error
+    size_t k = 0;
+    for (; k < resultSize; ++k) {
+      float result;
+      char *endPointer;
+
+      int res = getline(&line, &linebufferSize, childEvenFp);
+      if (res == -1) {
+        exit(EXIT_FAILURE);
+      }
+      const float valueOfEven = strtof(line, &endPointer);
+      result = valueOfEven;
+
+      res = getline(&line, &linebufferSize, childOddFp);
+      if (res == -1) {
+        exit(EXIT_FAILURE);
+      }
+      const float valueOfOdd = strtof(line, &endPointer);
+      result += valueOfOdd;
+
+      fprintf(stdout, "%f", result);
     }
-    const float valueOfEven = strtof(&line, &endPointer);
-    result = valueOfEven;
-
-    res = getline(&line, &linebufferSize, pipefdEven[1]);
-    if (res == -1) {
-      // error
-    }
-    const float valueOfOdd = strtof(&line, &endPointer);
-    result += valueOfOdd;
-
-    fprintf(stdout, "%f", result);
   }
 
+  fprintf(stderr, "Wait for children to die...\n");
   // wait for children to die
   bool evenDead = false, oddDead = false;
   while (true) {

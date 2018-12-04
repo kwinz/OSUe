@@ -10,3 +10,5 @@ void printVerbose(int verbose, const char *fmt, va_list args);
 
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+
+#define PI 3.141592654

@@ -4,9 +4,10 @@
 
 CC = gcc
 DEFS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_VID_SOURCE -D_POSIX_C_SOURCE=200809L
-CFLAGS = -Wall -g -std=c99 -pedantic $(DEFS)
-#CFLAGS = -Wall -g -Werror -std=c99 -pedantic -fsanitize=address $(DEFS)
-LDFLAGS = -lasan -lz
+#CFLAGS = -Wall -g3 -std=c99 -pedantic $(DEFS)
+CFLAGS = -Wall -g -Werror -std=c99 -pedantic -fsanitize=address $(DEFS)
+LDFLAGS = -lasan
+#LDFLAGS =
 
 .PHONY: all clean docs
 

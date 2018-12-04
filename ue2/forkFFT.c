@@ -11,42 +11,31 @@
 
 #include <math.h>
 
-#define DEFAULT_LINEBUFFER_SIZE 1
-#define INITIAL_ARRAY_CAPACITY 2
+/** @defgroup forkFFT */
 
-typedef struct myvect {
-  float *data;
-  size_t size;
-  size_t capacity;
-} Myvect_t;
+/** @addtogroup forkFFT
+ * @brief Calculates forkFFT
+ *
+ * @details Recursively creates processes to calculate fast fourier transformation.
+ *
+ * @author Markus Krainz
+ * @date December 2018
+ * @{
+ */
 
-static void init_myvect(Myvect_t *myvect) {
-  myvect->data = malloc(sizeof(float) * INITIAL_ARRAY_CAPACITY);
-  myvect->size = 0;
-  myvect->capacity = INITIAL_ARRAY_CAPACITY;
-}
-
-static void push_myvect(Myvect_t *myvect, float data) {
-  if (unlikely(myvect->size == myvect->capacity)) {
-    myvect->capacity *= 2;
-    myvect->data = realloc(myvect->data, sizeof(float) * myvect->capacity);
-  }
-  myvect->data[myvect->size] = data;
-  myvect->size++;
-}
-
-static void freedata_myvect(Myvect_t *myvect) {
-  free(myvect->data);
-  myvect->size = 0;
-  myvect->capacity = 0;
-}
+/*
+ * FIXME: Each function shall be documented either before the declaration or the implementation. It
+should include purpose (@brief, @details tags), description of parameters and return value (@param,
+@return tags) and description of global variables the function uses (@details tag).
+ *
+ */
 
 int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Running main()... My pid is: %d\n", (int)getpid());
 
-  size_t linebufferSize = DEFAULT_LINEBUFFER_SIZE;
-  char *line = malloc(linebufferSize);
+  size_t linebufferSize = 0;
+  char *line = NULL;
 
   Myvect_t myVect;
   init_myvect(&myVect);
@@ -220,6 +209,8 @@ int main(int argc, char *argv[]) {
 
       res = getline(&line, &linebufferSize, childOddFp);
       if (res == -1) {
+        // FIXME: Error messages shall be written to stderr and should contain the program name
+        // argv[0].
         fprintf(stderr, "Cannot read odd! My pid is: %d\n", (int)getpid());
         exit(EXIT_FAILURE);
       }
@@ -303,3 +294,5 @@ int main(int argc, char *argv[]) {
 
   return EXIT_SUCCESS;
 }
+
+/** @}*/

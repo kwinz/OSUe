@@ -1,69 +1,65 @@
-#include <string.h>
+#include <stdlib.h>
 
 /** @defgroup Tools */
 
 /** @addtogroup Tools
- * @brief Provides HTTP Utility Tools
+ * @brief Provides Utility Tools
  *
- * @details Right now mostly string manipulation functions.
+ * @details Right now mostly a vector library
  *
  * @author Markus Krainz
- * @date November 2018
+ * @date December 2018
  *  @{
  */
 
 #include "tools.h"
 
 /**
- * @brief Checks if a string starts with a prefix string.
+ * @brief Initializes a vector and allocates some memory
  *
- * @param longstring c_string that should be checked if it starts with begin
- * @param begin c_string that we want to check if it lies wholy within the first characters of
- * longstring
- * @return 1 if longstring starts with begin, 0 otherwise
+ * @detail Terminates the application if memory allocation fails
+ * @param myvect The vector to be initialized
  */
-int8_t startsWith(const char *longstring, const char *begin) {
-  if (strncmp(longstring, begin, strlen(begin)) == 0)
-    return 1;
-  return 0;
+void init_myvect(Myvect_t *myvect) {
+  myvect->data = malloc(sizeof(float) * INITIAL_ARRAY_CAPACITY);
+  myvect->size = 0;
+  myvect->capacity = INITIAL_ARRAY_CAPACITY;
 }
 
 /**
- * @brief Checks if a string ends in a suffix string.
+ * @brief Stores a new Float in a vector
  *
- * @detail Based on https://stackoverflow.com/a/41921100/643011
- *
- * @param str c_string that should be checked if it ends with suffix
- * @param suffix c_string that we want to check if it lies wholy within the last characters of
- * longstring
- * @return 1 if longstring ends with suffix, 0 otherwise
+ * @detail Terminates the application if memory allocation fails,
+ * or if passed an invalid vector.
+ * @param myvect The vector
+ * @param data the float to be stored in the vector
  */
-int8_t strEndsWith(char *str, char *suffix) {
-  int len = strlen(str);
-  int suffixlen = strlen(suffix);
+void push_myvect(Myvect_t *myvect, float data) {
+  if (unlikely(myvect->size == myvect->capacity)) {
+    if (unlikely(myvect->capacity == 0)) {
+      // using a myvect that has not been initialized or already freed
+      exit(EXIT_FAILURE);
+    }
 
-  // if suffix is longer than string return 0
-  if (suffixlen > len) {
-    return 0;
+    myvect->capacity *= 2;
+    myvect->data = realloc(myvect->data, sizeof(float) * myvect->capacity);
   }
-
-  // move to the end of the string
-  str += (len - suffixlen);
-
-  return strcmp(str, suffix) == 0;
+  myvect->data[myvect->size] = data;
+  myvect->size++;
 }
 
 /**
- * @brief fprintfs to stderr if verbose !=0
+ * @brief Frees a vector
  *
- * @param verbose this function does nothing if verbose==0
- * @param fmt printf-style format string
- * @param ... variable arguments for fprintf
+ * @detail Frees the internal memory of vector.
+ * After this function has been called do not reuse the vector.
+ * If the vector structure was allocated on the heap do not forget to free it separately!
+ * @param myvect The vector
  */
-void printVerbose(int verbose, const char *fmt, va_list args) {
-  if (verbose) {
-    fprintf(stderr, fmt, args);
-  }
+void freedata_myvect(Myvect_t *myvect) {
+  free(myvect->data);
+  myvect->size = 0;
+  myvect->capacity = 0;
 }
 
 /** @}*/

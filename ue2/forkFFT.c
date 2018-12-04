@@ -23,6 +23,66 @@
  * @{
  */
 
+typedef struct childData {
+  int stdin;
+  int stdout;
+  pid_t pid;
+} childData_t;
+
+/**
+ * @brief Starts a childprocess to process FFT
+ *
+ * @detail Starts a new child process executing the same main. Sets up
+ * stdin and stdout and returns them together with the child pid in a
+ * struct childData.
+ * @param argv argv of the current parent process
+ */
+childData_t setupChild(char *argv[]) {
+  int pipePairStdin[2];
+  pipe(pipePairStdin);
+
+  int pipePairStdout[2];
+  pipe(pipePairStdout);
+
+  fflush(stdout);
+  pid_t pid = fork();
+
+  if (pid == 0) {
+    // we are a child
+
+    // pipefd[0] – read end
+    // pipefd[1] – write end
+
+    dup2(pipePairStdout[1], STDOUT_FILENO);
+    close(pipePairStdout[1]);
+    close(pipePairStdout[0]);
+
+    // old descriptor - read end to new descriptor
+    dup2(pipePairStdin[0], STDIN_FILENO);
+    close(pipePairStdin[0]);
+    close(pipePairStdin[1]);
+
+    execlp(argv[0], argv[0], NULL);
+    // execlp only returns if an error has occured
+    exit(EXIT_FAILURE);
+  } else if (pid == -1) {
+    // an error has occured during forking
+    exit(EXIT_FAILURE);
+  }
+  // we are a parent
+
+  childData_t ret;
+
+  ret.pid = pid;
+  ret.stdin = pipePairStdin[1];
+  ret.stdout = pipePairStdout[0];
+
+  close(pipePairStdin[0]);
+  close(pipePairStdout[1]);
+
+  return ret;
+}
+
 int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Running main()... My pid is: %d\n", (int)getpid());
@@ -58,96 +118,14 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  int evenStdin;
-  int evenStdout;
-  pid_t pidEven;
-  {
-    int pipePairStdin[2];
-    pipe(pipePairStdin);
-
-    int pipePairStdout[2];
-    pipe(pipePairStdout);
-
-    fflush(stdout);
-    pid_t pid = fork();
-
-    if (pid == 0) {
-      // we are a child
-
-      // pipefd[0] – read end
-      // pipefd[1] – write end
-
-      dup2(pipePairStdout[1], STDOUT_FILENO);
-      close(pipePairStdout[1]);
-      close(pipePairStdout[0]);
-
-      // old descriptor - read end to new descriptor
-      dup2(pipePairStdin[0], STDIN_FILENO);
-      close(pipePairStdin[0]);
-      close(pipePairStdin[1]);
-
-      execlp(argv[0], argv[0], NULL);
-      // execlp only returns if an error has occured
-      exit(EXIT_FAILURE);
-    } else if (pid == -1) {
-      // an error has occured during forking
-      exit(EXIT_FAILURE);
-    }
-    // we are a parent
-    evenStdin = pipePairStdin[1];
-    close(pipePairStdin[0]);
-    evenStdout = pipePairStdout[0];
-    close(pipePairStdout[1]);
-    pidEven = pid;
-  }
-
-  int oddStdin;
-  int oddStdout;
-  pid_t pidOdd;
-  {
-    int pipePairStdin[2];
-    int pipePairStdout[2];
-    pipe(pipePairStdin);
-    pipe(pipePairStdout);
-
-    fflush(stdout);
-    pid_t pid = fork();
-
-    if (pid == 0) {
-      // we are a child
-
-      // pipefd[0] – read end
-      // pipefd[1] – write end
-
-      dup2(pipePairStdout[1], STDOUT_FILENO);
-      close(pipePairStdout[1]);
-      close(pipePairStdout[0]);
-
-      // old descriptor - read end to new descriptor
-      dup2(pipePairStdin[0], STDIN_FILENO);
-      close(pipePairStdin[0]);
-      close(pipePairStdin[1]);
-
-      execlp(argv[0], argv[0], NULL);
-      // execlp only returns if an error has occured
-      exit(EXIT_FAILURE);
-    } else if (pid == -1) {
-      // an error has occured
-      exit(EXIT_FAILURE);
-    }
-    // we are a parent
-    oddStdin = pipePairStdin[1];
-    close(pipePairStdin[0]);
-    oddStdout = pipePairStdout[0];
-    close(pipePairStdout[1]);
-    pidOdd = pid;
-  }
+  childData_t even = setupChild(argv);
+  childData_t odd = setupChild(argv);
 
   fprintf(stderr, "Send data to children...\n");
   // send data to children
   {
-    FILE *childEvenFp = fdopen(evenStdin, "w");
-    FILE *childOddFp = fdopen(oddStdin, "w");
+    FILE *childEvenFp = fdopen(even.stdin, "w");
+    FILE *childOddFp = fdopen(odd.stdin, "w");
 
     for (size_t i = 0; i < myVect.size; i += 2) {
       fprintf(childEvenFp, "%f\n", myVect.data[i]);
@@ -158,8 +136,8 @@ int main(int argc, char *argv[]) {
 
     fclose(childEvenFp);
     fclose(childOddFp);
-    close(evenStdin);
-    close(oddStdin);
+    close(even.stdin);
+    close(odd.stdin);
   }
 
   const size_t resultSize = myVect.size;
@@ -173,8 +151,8 @@ int main(int argc, char *argv[]) {
   float resultEvenImaginary[resultSize / 2];
   float resultOddImaginary[resultSize / 2];
   {
-    FILE *childEvenFp = fdopen(evenStdout, "r");
-    FILE *childOddFp = fdopen(oddStdout, "r");
+    FILE *childEvenFp = fdopen(even.stdout, "r");
+    FILE *childOddFp = fdopen(odd.stdout, "r");
     size_t linebufferSize = 0;
     char *line = NULL;
 
@@ -204,8 +182,8 @@ int main(int argc, char *argv[]) {
 
     fclose(childEvenFp);
     fclose(childOddFp);
-    close(evenStdout);
-    close(oddStdout);
+    close(even.stdout);
+    close(odd.stdout);
   }
 
   fprintf(stderr, "Wait for children to die...\n");
@@ -230,9 +208,9 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
 
-    if (pid == pidOdd) {
+    if (pid == odd.pid) {
       oddDead = true;
-    } else if (pid == pidEven) {
+    } else if (pid == even.pid) {
       evenDead = true;
     }
 

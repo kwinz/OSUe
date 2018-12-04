@@ -85,8 +85,9 @@ int main(int argc, char *argv[]) {
   pid_t pidEven;
   {
     int pipePairStdin[2];
-    int pipePairStdout[2];
     pipe(pipePairStdin);
+
+    int pipePairStdout[2];
     pipe(pipePairStdout);
 
     fflush(stdout);
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]) {
       // execlp only returns if an error has occured
       exit(EXIT_FAILURE);
     } else if (pid == -1) {
-      // an error has occured
+      // an error has occured during forking
       exit(EXIT_FAILURE);
     }
     // we are a parent
@@ -232,39 +233,6 @@ int main(int argc, char *argv[]) {
     close(oddStdout);
   }
 
-  const float minus2PIDividedbyResultSize = -2 * PI / resultSize;
-  for (size_t i = 0; i < resultSize; ++i) {
-
-    float rightSide = 0;
-    float rightSideImaginary = 0;
-    {
-      // cos(- 2π/n · k) + i · sin(-2π/ n · k)
-      const float factor = cos(minus2PIDividedbyResultSize * (i % (resultSize / 2)));
-      const float factorImaginary = sin(minus2PIDividedbyResultSize * (i % (resultSize / 2)));
-
-      const float odd = resultOdd[i % (resultSize / 2)];
-      const float oddImaginary = resultOddImaginary[i % (resultSize / 2)];
-
-      //(a[r]+a[i])(c[r]+c[i]) = a[r]·c[r] - a[i]·c[i] + i·(a[r]·c[i]+a[i]·c[r]);
-      rightSide = factor * odd;
-      rightSideImaginary =
-          -factorImaginary * oddImaginary + factor * oddImaginary + factorImaginary * odd;
-    }
-
-    float result = resultEven[i % (resultSize / 2)];
-    float resultImaginary = resultEvenImaginary[i % (resultSize / 2)];
-    if (i < resultSize / 2) {
-      result += rightSide;
-      resultImaginary += rightSideImaginary;
-    } else {
-      result -= rightSide;
-      resultImaginary -= rightSideImaginary;
-    }
-
-    fprintf(stdout, "%f %f*i\n", result, resultImaginary);
-    fprintf(stderr, "Wrote result number %zu! My pid is: %d\n", i, (int)getpid());
-  }
-
   fprintf(stderr, "Wait for children to die...\n");
   // wait for children to die
   bool evenDead = false, oddDead = false;
@@ -296,6 +264,41 @@ int main(int argc, char *argv[]) {
     if (oddDead && evenDead) {
       break;
     }
+  }
+
+  fprintf(stderr, "Calculating and outputting own results...\n");
+  const float minus2PIDividedbyResultSize = -2 * PI / resultSize;
+  for (int i = 0; i < resultSize; ++i) {
+    const int k = i % (resultSize / 2);
+
+    float rightSide;
+    float rightSideImaginary;
+    {
+      // cos(- 2π/n · k) + i · sin(-2π/ n · k)
+
+      const float factor = cos(minus2PIDividedbyResultSize * k);
+      const float factorImaginary = sin(minus2PIDividedbyResultSize * k);
+
+      const float odd = resultOdd[i % (resultSize / 2)];
+      const float oddImaginary = resultOddImaginary[i % (resultSize / 2)];
+
+      //(a[r]+a[i])(c[r]+c[i]) = a[r]·c[r] - a[i]·c[i] + i·(a[r]·c[i]+a[i]·c[r]);
+      rightSide = factor * odd - factorImaginary * oddImaginary;
+      rightSideImaginary = factor * oddImaginary + factorImaginary * odd;
+    }
+
+    float result = resultEven[i % (resultSize / 2)];
+    float resultImaginary = resultEvenImaginary[i % (resultSize / 2)];
+    if (i < resultSize / 2) {
+      result += rightSide;
+      resultImaginary += rightSideImaginary;
+    } else {
+      result -= rightSide;
+      resultImaginary -= rightSideImaginary;
+    }
+
+    fprintf(stdout, "%f %f*i\n", result, resultImaginary);
+    // fprintf(stderr, "Wrote result number %zu! My pid is: %d\n", i, (int)getpid());
   }
 
   return EXIT_SUCCESS;

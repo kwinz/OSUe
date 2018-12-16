@@ -22,6 +22,10 @@
  */
 void init_myvect(Myvect_t *myvect) {
   myvect->data = malloc(sizeof(float) * INITIAL_ARRAY_CAPACITY);
+  if(unlikely(myvect->data == NULL)){
+    //out of memory
+    exit(EXIT_FAILURE);
+  }
   myvect->size = 0;
   myvect->capacity = INITIAL_ARRAY_CAPACITY;
 }
@@ -43,6 +47,10 @@ void push_myvect(Myvect_t *myvect, float data) {
 
     myvect->capacity *= 2;
     myvect->data = realloc(myvect->data, sizeof(float) * myvect->capacity);
+    if(unlikely(myvect->data == NULL)){
+      //out of memory
+      exit(EXIT_FAILURE);
+    }
   }
   myvect->data[myvect->size] = data;
   myvect->size++;

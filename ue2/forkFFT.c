@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,7 +15,7 @@
 /** @defgroup forkFFT */
 
 /** @addtogroup forkFFT
- * @brief Calculates forkFFT
+ * @brief Calculates Fast Fourier transform (FFT)
  *
  * @details Recursively creates processes to calculate fast fourier transformation.
  *
@@ -36,13 +37,22 @@ typedef struct childData {
  * stdin and stdout and returns them together with the child pid in a
  * struct childData.
  * @param argv argv of the current parent process
+ * @return A struct with stdin, stdout and pid of the new childprocess
  */
-childData_t setupChild(char *argv[]) {
+static childData_t setupChild(char *argv[]) {
   int pipePairStdin[2];
-  pipe(pipePairStdin);
+  int pipeRet = pipe(pipePairStdin);
+  if(pipeRet != 0){
+    // an error has occured during creating the pipe for stdin
+    exit(EXIT_FAILURE);
+  }
 
   int pipePairStdout[2];
-  pipe(pipePairStdout);
+  pipeRet = pipe(pipePairStdout);
+  if(pipeRet != 0){
+    // an error has occured during creating the pipe for stdout
+    exit(EXIT_FAILURE);
+  }
 
   fflush(stdout);
   pid_t pid = fork();
@@ -97,6 +107,14 @@ int main(int argc, char *argv[]) {
     while ((getline(&line, &linebufferSize, stdin)) != -1) {
       char *endPointer;
       const float valueOfThisLine = strtof(line, &endPointer);
+      if(endPointer == NULL || (*endPointer != '\r' && *endPointer != '\n' && *endPointer != '\0')){
+        fprintf(stderr, "%s Could not parse input value: %s. My pid is: %d\n", argv[0], line, (int)getpid());
+        free(line);
+        freedata_myvect(&myVect);
+        return EXIT_FAILURE;
+      } else{
+         fprintf(stderr, "Parsed");
+      }
       push_myvect(&myVect, valueOfThisLine);
     }
     free(line);
@@ -105,16 +123,19 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Read %zu floats from stdin. My pid is: %d\n", myVect.size, (int)getpid());
 
   if (myVect.size == 0) {
+    freedata_myvect(&myVect);
     return EXIT_FAILURE;
   }
 
   if (myVect.size == 1) {
     fprintf(stdout, "%f 0.0*i", myVect.data[0]);
     fprintf(stderr, "Wrote result! My pid is: %d\n", (int)getpid());
+    freedata_myvect(&myVect);
     return EXIT_SUCCESS;
   }
 
   if (myVect.size % 2 != 0) {
+    freedata_myvect(&myVect);
     return EXIT_FAILURE;
   }
 
@@ -161,7 +182,8 @@ int main(int argc, char *argv[]) {
 
       int res = getline(&line, &linebufferSize, childEvenFp);
       if (res == -1) {
-        fprintf(stderr, "Cannot read even! My pid is: %d\n", (int)getpid());
+        fprintf(stderr, "%s Cannot read even! My pid is: %d\n", argv[0], (int)getpid());
+        free(line);
         exit(EXIT_FAILURE);
       }
       resultEven[k] = strtof(line, &endPointer);
@@ -169,9 +191,8 @@ int main(int argc, char *argv[]) {
 
       res = getline(&line, &linebufferSize, childOddFp);
       if (res == -1) {
-        // FIXME: Error messages shall be written to stderr and should contain the program name
-        // argv[0].
-        fprintf(stderr, "Cannot read odd! My pid is: %d\n", (int)getpid());
+        fprintf(stderr, "%s Cannot read odd! My pid is: %d\n", argv[0], (int)getpid());
+        free(line);
         exit(EXIT_FAILURE);
       }
       resultOdd[k] = strtof(line, &endPointer);
@@ -200,7 +221,7 @@ int main(int argc, char *argv[]) {
         continue;
       }
       // else crash
-      fprintf(stderr, "Cannot wait!\n");
+      fprintf(stderr, "%s Cannot wait!\n", argv[0]);
       exit(EXIT_FAILURE);
     }
 

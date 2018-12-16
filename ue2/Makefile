@@ -5,7 +5,8 @@
 CC = gcc
 DEFS = -D_DEFAULT_SOURCE -D_BSD_SOURCE -D_VID_SOURCE -D_POSIX_C_SOURCE=200809L
 #CFLAGS = -Wall -g3 -std=c99 -pedantic $(DEFS)
-CFLAGS = -Wall -g -Werror -std=c99 -pedantic -fsanitize=address $(DEFS)
+CFLAGS = -Wall -g -Werror -std=c99 -pedantic $(DEFS)
+#CFLAGS = -Wall -g -Werror -std=c99 -pedantic -fsanitize=address $(DEFS)
 LDFLAGS = -lasan -lm
 #LDFLAGS =
 
@@ -24,7 +25,7 @@ tools.o: tools.c tools.h
 
 docs:  html/index.html
 
-html/index.html: forkFFT.c forkFFT.h tools.c tools.h
+html/index.html: forkFFT.c tools.c tools.h
 	doxygen Doxyfile
 
 clean:

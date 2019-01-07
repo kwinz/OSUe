@@ -36,23 +36,17 @@ int main(int argc, char *argv[]) {
       return EXIT_FAILURE;
     }
 
-    fprintf(stderr, "%s - %s :", a_str, b_str);
-
     char *endPointer;
     long a = strtol(a_str, &endPointer, 0);
     if (*endPointer != '\0') {
       fprintf(stderr, "Could not parse edge part a\n");
       return EXIT_FAILURE;
-    } else {
-      fprintf(stderr, "Parsed\n");
     }
 
     long b = strtol(b_str, &endPointer, 0);
     if (*endPointer != '\0') {
       fprintf(stderr, "Could not parse edge part b\n");
       return EXIT_FAILURE;
-    } else {
-      fprintf(stderr, "Parsed\n");
     }
 
     graph[i].a = a;

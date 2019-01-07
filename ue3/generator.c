@@ -73,28 +73,21 @@ int main(int argc, char *argv[]) {
     vertices[i] = i;
   }
 
-  for (int i = 0; i <= max_vert; ++i) {
-    fprintf(stderr, "%d,", vertices[i]);
-  }
-
-  fprintf(stderr, "\nBEFORE SHUFFLE\n");
-
   // shuffle
   srand(time(NULL));
   for (int i = 0; i < max_vert - 1; ++i) {
     const int j = i + rand() % (max_vert + 1 - i);
-    fprintf(stderr, "swapping indizes: %d,%d\n", i, j);
     const int temp = vertices[i];
     vertices[i] = vertices[j];
     vertices[j] = temp;
-
-    for (int i = 0; i <= max_vert; ++i) {
-      fprintf(stderr, "%d,", vertices[i]);
-    }
-    fprintf(stderr, "\n----\n");
   }
 
-  fprintf(stderr, "AFTER SHUFFLE\n");
+  fprintf(stderr, "shuffled: ");
+
+  for (int i = 0; i <= max_vert; ++i) {
+    fprintf(stderr, "%d,", vertices[i]);
+  }
+  fprintf(stderr, "\n");
 
   return EXIT_SUCCESS;
 }

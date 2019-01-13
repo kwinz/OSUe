@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <string.h>
+
 
 #include "tools.h"
 
@@ -52,16 +55,23 @@ int main(int argc, char *argv[]) {
   // assures at most 1 writer
   sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
 
-  struct sigaction sa = {.sa_hander = handle_signal};
-  sigaction(SIGINT, &sa, NULL);
+  //struct sigaction sa = {.sa_hander = handle_signal};
+  //sigaction(SIGINT, &sa, NULL);
+
+  {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa)); // initialize sa to 0
+    sa.sa_handler = &handle_signal;
+    sigaction(SIGINT, &sa, NULL);
+  }
 
   Result_t result;
   do {
     // blocking read
     fprintf(stderr, "Waiting for result!\n");
     result = circ_buf_read(myshm, free_sem, used_sem);
-    fprintf(stderr, "Got a result with %d vertices!\n", result->size);
-  } while (!quit || result->size == 0);
+    fprintf(stderr, "Got a result with %zu vertices!\n", result.size);
+  } while (!quit || result.size == 0);
 
   fprintf(stderr, "Finished processing!\n");
 

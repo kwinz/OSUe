@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
+
 
 #include "tools.h"
 
@@ -104,11 +106,14 @@ int main(int argc, char *argv[]) {
   // assures at most 1 writer
   sem_t *write_sem = sem_open(SEM_WRITE_NAME, 0);
 
-  struct sigaction sa = {.sa_hander = handle_signal};
-  sigaction(SIGINT, &sa, NULL);
+  {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa)); // initialize sa to 0
+    sa.sa_handler = &handle_signal;
+    sigaction(SIGINT, &sa, NULL);
+  }
 
-  sem_wait(s2);
-  printf("critical: %s: i = %d\n", argv[0], i);
+
 
   do {
     // shuffle
@@ -148,11 +153,18 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
-    sleep(500);
+
+  if(!max_exceeded){
+  sem_wait(write_sem);
+  printf("critical: %s\n", argv[0]);
+
+    usleep(500000);
+  sem_post(write_sem);
+  }
 
   } while (!quit);
 
-  sem_post(s1);
+
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
     fprintf(stderr, "Could not unmap shm\n");

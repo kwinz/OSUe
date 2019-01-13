@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
 
   // map shared memory object:
   Myshm_t *myshm;
-  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
+  myshm = mmap(NULL, sizeof(Myshm_t), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
   if (myshm == MAP_FAILED) {
     fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
 
   } while (!quit);
 
-  if (munmap(myshm, sizeof(*myshm)) == -1) {
+  if (munmap(myshm, sizeof(Myshm_t)) == -1) {
     fprintf(stderr, "%s %d: ERROR Could not unmap shm\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }

@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     vertices[i] = i;
   }
 
-  Edge_t report[MAX_REPORTED];
+  Result_t report;
   srand(time(NULL));
 
   // open the shared memory object:
@@ -128,6 +128,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "\n");
 
     bool max_exceeded = false;
+    report.size = 0;
 
     for (int i = 0, reported = 0; i < edge_count && !max_exceeded; ++i) {
       for (int j = 0; j <= max_vert; ++j) {
@@ -141,8 +142,9 @@ int main(int argc, char *argv[]) {
             break;
           }
           fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
-          report[reported] = graph[i];
+          report.arc_set[reported] = graph[i];
           ++reported;
+          ++report.size;
           break;
         }
         assert(j < max_vert && "No matches found yet. This should never happen.");
@@ -152,8 +154,11 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
 
     if (!max_exceeded) {
+
       sem_wait(write_sem);
       printf("critical: %s\n", argv[0]);
+
+      circ_buf_write(myshm, free_sem, used_sem, write_sem, report);
 
       usleep(500000);
       sem_post(write_sem);

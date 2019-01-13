@@ -45,10 +45,20 @@ static void handle_signal(int signal) { quit = 1; }
  */
 static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result_t *val) {
   // writing requires free space
-  sem_wait(free_sem);
+  if (sem_wait(free_sem) == -1) {
+    if (errno == EINTR) {
+      // harmless interrupt. Throw away current result and continue.
+      return;
+    }
+    fprintf(stderr, "Fatal Error with sem_wait.");
+    exit(EXIT_FAILURE);
+  }
   shm->buf[shm->write_pos] = *val;
   // space is used by written data
-  sem_post(used_sem);
+  if (sem_post(used_sem) == -1) {
+    fprintf(stderr, "Fatal Error with sem_post.");
+    exit(EXIT_FAILURE);
+  }
   shm->write_pos = (shm->write_pos + 1) % BUF_LEN;
 }
 
@@ -148,6 +158,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  // setup signal handlers
   {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0
@@ -212,10 +223,21 @@ int main(int argc, char *argv[]) {
     }
 
     if (!max_exceeded) {
+      if (sem_wait(write_sem) == -1) {
+        if (errno == EINTR) {
+          // harmless interrupt. Throw away current result and continue.
+          continue;
+        }
+        fprintf(stderr, "%s %d: ERROR with sem_wait.\n", argv[0], (int)getpid());
+        return (EXIT_FAILURE);
+      }
 
-      sem_wait(write_sem);
       circ_buf_write(myshm, free_sem, used_sem, &report);
-      sem_post(write_sem);
+
+      if (sem_post(write_sem) == -1) {
+        fprintf(stderr, "%s %d: ERROR with sem_post.\n", argv[0], (int)getpid());
+        return (EXIT_FAILURE);
+      }
       // we could sleep here for 500ms with usleep(500000); e.g. for debugging
     }
 

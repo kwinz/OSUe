@@ -44,9 +44,12 @@ static bool circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result
 
   // reading requires data (used space)
   if (sem_wait(used_sem) == -1) {
-    // FIXME: error!
-    // FIXME: if (errno == EINTR) // interrupted by signal?
-    // continue;
+    if (errno == EINTR) {
+      // harmless interrupt. Return now best_result and continue
+      return false;
+    }
+    fprintf(stderr, "Fatal Error with sem_wait.");
+    exit(EXIT_FAILURE);
   }
 
   const Result_t *result = &(shm->buf[shm->read_pos]);
@@ -55,7 +58,10 @@ static bool circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result
     newBest = true;
   }
   // reading frees up space
-  sem_post(free_sem);
+  if (sem_post(free_sem) == -1) {
+    fprintf(stderr, "Fatal Error with sem_post.");
+    exit(EXIT_FAILURE);
+  }
   shm->read_pos = (shm->read_pos + 1) % BUF_LEN;
 
   if (DEBUG_OUTPUT) {
@@ -108,6 +114,7 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  // setup signal handlers
   {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0

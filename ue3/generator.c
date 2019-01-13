@@ -121,11 +121,11 @@ int main(int argc, char *argv[]) {
       vertices[j] = temp;
     }
 
-    fprintf(stderr, "shuffled: ");
-    for (int i = 0; i <= max_vert; ++i) {
-      fprintf(stderr, "%d,", vertices[i]);
-    }
-    fprintf(stderr, "\n");
+    //fprintf(stderr, "shuffled: ");
+    //for (int i = 0; i <= max_vert; ++i) {
+    //  fprintf(stderr, "%d,", vertices[i]);
+    //}
+    //fprintf(stderr, "\n");
 
     bool max_exceeded = false;
     report.size = 0;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0, reported = 0; i < edge_count && !max_exceeded; ++i) {
       for (int j = 0; j <= max_vert; ++j) {
         if (graph[i].a == vertices[j]) {
-          fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
+          //fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
           break;
         }
         if (graph[i].b == vertices[j]) {
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
             max_exceeded = true;
             break;
           }
-          fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
+          //fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
           report.arc_set[reported] = graph[i];
           ++reported;
           ++report.size;
@@ -151,16 +151,22 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+    //fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+
+    if (myshm->shutdown) {
+      printf("shutting down beacuse of shm signal: %s\n", argv[0]);
+      quit = true;
+      break;
+    }
 
     if (!max_exceeded) {
 
       sem_wait(write_sem);
-      printf("critical: %s\n", argv[0]);
+      //printf("critical: %s\n", argv[0]);
 
       circ_buf_write(myshm, free_sem, used_sem, write_sem, report);
 
-      usleep(500000);
+      // usleep(500000);
       sem_post(write_sem);
     }
 

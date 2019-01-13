@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     // fprintf(stderr, "Waiting for result!\n");
     result = circ_buf_read(myshm, free_sem, used_sem);
     // fprintf(stderr, "Got a result with %zu vertices!\n", result.size);
-    fprintf(stderr, ".");
+    //fprintf(stderr, ".");
 
     if (result.size < best_result.size) {
       memcpy(&best_result, &result, sizeof(Result_t));
@@ -86,6 +86,8 @@ int main(int argc, char *argv[]) {
   } while (!quit && best_result.size != 0);
 
   fprintf(stderr, "Finished processing!\n");
+
+  myshm->shutdown = true;
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
     fprintf(stderr, "Could not unmap shm\n");

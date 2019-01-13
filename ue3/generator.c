@@ -1,13 +1,12 @@
 #include <assert.h>
 #include <math.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <signal.h>
-
 
 #include "tools.h"
 
@@ -113,8 +112,6 @@ int main(int argc, char *argv[]) {
     sigaction(SIGINT, &sa, NULL);
   }
 
-
-
   do {
     // shuffle
     for (int i = 0; i < max_vert - 1; ++i) {
@@ -154,17 +151,15 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
 
-  if(!max_exceeded){
-  sem_wait(write_sem);
-  printf("critical: %s\n", argv[0]);
+    if (!max_exceeded) {
+      sem_wait(write_sem);
+      printf("critical: %s\n", argv[0]);
 
-    usleep(500000);
-  sem_post(write_sem);
-  }
+      usleep(500000);
+      sem_post(write_sem);
+    }
 
   } while (!quit);
-
-
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
     fprintf(stderr, "Could not unmap shm\n");

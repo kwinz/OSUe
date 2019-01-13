@@ -1,8 +1,7 @@
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
-
 
 #include "tools.h"
 
@@ -55,8 +54,8 @@ int main(int argc, char *argv[]) {
   // assures at most 1 writer
   sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
 
-  //struct sigaction sa = {.sa_hander = handle_signal};
-  //sigaction(SIGINT, &sa, NULL);
+  // struct sigaction sa = {.sa_hander = handle_signal};
+  // sigaction(SIGINT, &sa, NULL);
 
   {
     struct sigaction sa;

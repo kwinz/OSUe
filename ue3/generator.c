@@ -13,7 +13,8 @@ static volatile sig_atomic_t quit = 0;
 
 static void handle_signal(int signal) { quit = 1; }
 
-static void circ_buf_write(Myshm_t* shm, sem_t *free_sem, sem_t *used_sem,sem_t *write_sem, Result_t val) {
+static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, sem_t *write_sem,
+                           Result_t val) {
   // writing requires free space
   sem_wait(free_sem);
   shm->buf[shm->write_pos] = val;
@@ -80,7 +81,6 @@ int main(int argc, char *argv[]) {
   Edge_t report[MAX_REPORTED];
   srand(time(NULL));
 
-
   // open the shared memory object:
   int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1) {
@@ -97,60 +97,62 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-      // tracks free space, initialized to BUF_LEN
-    sem_t *free_sem = sem_open(SEM_FREE_NAME, /*flags*/ 0);
-    // tracks used space, initialized to 0
-    sem_t *used_sem = sem_open(SEM_USED_NAME,0);
-    // assures at most 1 writer
-    sem_t *write_sem = sem_open(SEM_WRITE_NAME, 0);
+  // tracks free space, initialized to BUF_LEN
+  sem_t *free_sem = sem_open(SEM_FREE_NAME, /*flags*/ 0);
+  // tracks used space, initialized to 0
+  sem_t *used_sem = sem_open(SEM_USED_NAME, 0);
+  // assures at most 1 writer
+  sem_t *write_sem = sem_open(SEM_WRITE_NAME, 0);
 
-    
-    sem_wait(s2);
-    printf("critical: %s: i = %d\n", argv[0], i);
-    
-    do{
-// shuffle
-  for (int i = 0; i < max_vert - 1; ++i) {
-    const int j = i + rand() % (max_vert + 1 - i);
-    const int temp = vertices[i];
-    vertices[i] = vertices[j];
-    vertices[j] = temp;
-  }
+  struct sigaction sa = {.sa_hander = handle_signal};
+  sigaction(SIGINT, &sa, NULL);
 
-  fprintf(stderr, "shuffled: ");
-  for (int i = 0; i <= max_vert; ++i) {
-    fprintf(stderr, "%d,", vertices[i]);
-  }
-  fprintf(stderr, "\n");
+  sem_wait(s2);
+  printf("critical: %s: i = %d\n", argv[0], i);
 
-  bool max_exceeded = false;
+  do {
+    // shuffle
+    for (int i = 0; i < max_vert - 1; ++i) {
+      const int j = i + rand() % (max_vert + 1 - i);
+      const int temp = vertices[i];
+      vertices[i] = vertices[j];
+      vertices[j] = temp;
+    }
 
-  for (int i = 0, reported = 0; i < edge_count && !max_exceeded; ++i) {
-    for (int j = 0; j <= max_vert; ++j) {
-      if (graph[i].a == vertices[j]) {
-        fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
-        break;
-      }
-      if (graph[i].b == vertices[j]) {
-        if (reported == MAX_REPORTED) {
-          max_exceeded = true;
+    fprintf(stderr, "shuffled: ");
+    for (int i = 0; i <= max_vert; ++i) {
+      fprintf(stderr, "%d,", vertices[i]);
+    }
+    fprintf(stderr, "\n");
+
+    bool max_exceeded = false;
+
+    for (int i = 0, reported = 0; i < edge_count && !max_exceeded; ++i) {
+      for (int j = 0; j <= max_vert; ++j) {
+        if (graph[i].a == vertices[j]) {
+          fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
           break;
         }
-        fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
-        report[reported] = graph[i];
-        ++reported;
-        break;
+        if (graph[i].b == vertices[j]) {
+          if (reported == MAX_REPORTED) {
+            max_exceeded = true;
+            break;
+          }
+          fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
+          report[reported] = graph[i];
+          ++reported;
+          break;
+        }
+        assert(j < max_vert && "No matches found yet. This should never happen.");
       }
-      assert(j < max_vert && "No matches found yet. This should never happen.");
     }
-  }
 
-  fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+    fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+    sleep(500);
 
-    } while(true);
+  } while (!quit);
 
-    sem_post(s1);
-
+  sem_post(s1);
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
     fprintf(stderr, "Could not unmap shm\n");
@@ -166,15 +168,14 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Could not close free_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_close(used_sem) == -1) {
+  if (sem_close(used_sem) == -1) {
     fprintf(stderr, "Could not close used_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_close(write_sem) == -1) {
+  if (sem_close(write_sem) == -1) {
     fprintf(stderr, "Could not close write_sem.\n");
     return EXIT_FAILURE;
   }
-
 
   return EXIT_SUCCESS;
 }

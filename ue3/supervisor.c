@@ -8,12 +8,12 @@ static volatile sig_atomic_t quit = 0;
 static void handle_signal(int signal) { quit = 1; }
 
 // taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
-static Result_t circ_buf_read(Myshm_t* shm, sem_t *free_sem, sem_t *used_sem) {
+static Result_t circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem) {
   // reading requires data (used space)
-  if(sem_wait(used_sem) == -1){
-    //FIXME: error!
-      //FIXME: if (errno == EINTR) // interrupted by signal?
-  //continue;
+  if (sem_wait(used_sem) == -1) {
+    // FIXME: error!
+    // FIXME: if (errno == EINTR) // interrupted by signal?
+    // continue;
   }
 
   Result_t val = shm->buf[shm->read_pos];
@@ -44,20 +44,20 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  //FIXME sem_open
-    // tracks free space, initialized to BUF_LEN
-    sem_t *free_sem = sem_open(SEM_FREE_NAME, O_CREAT | O_EXCL, 0600, BUF_LEN);
-    // tracks used space, initialized to 0
-    sem_t *used_sem = sem_open(SEM_USED_NAME, O_CREAT | O_EXCL, 0600, 0);
-    // assures at most 1 writer
-    sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
+  // FIXME sem_open
+  // tracks free space, initialized to BUF_LEN
+  sem_t *free_sem = sem_open(SEM_FREE_NAME, O_CREAT | O_EXCL, 0600, BUF_LEN);
+  // tracks used space, initialized to 0
+  sem_t *used_sem = sem_open(SEM_USED_NAME, O_CREAT | O_EXCL, 0600, 0);
+  // assures at most 1 writer
+  sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
 
-    struct sigaction sa = { .sa_hander = handle_signal; };
-    sigaction(SIGINT, &sa, NULL);
+  struct sigaction sa = {.sa_hander = handle_signal};
+  sigaction(SIGINT, &sa, NULL);
 
   Result_t result;
-  do{
-    //blocking read
+  do {
+    // blocking read
     fprintf(stderr, "Waiting for result!\n");
     result = circ_buf_read(myshm, free_sem, used_sem);
     fprintf(stderr, "Got a result with %d vertices!\n", result->size);
@@ -80,30 +80,29 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Could not unlink (remove) shm file\n");
     return EXIT_FAILURE;
   }
-    
-      if (sem_close(free_sem) == -1) {
+
+  if (sem_close(free_sem) == -1) {
     fprintf(stderr, "Could not close free_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_close(used_sem) == -1) {
+  if (sem_close(used_sem) == -1) {
     fprintf(stderr, "Could not close used_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_close(write_sem) == -1) {
+  if (sem_close(write_sem) == -1) {
     fprintf(stderr, "Could not close write_sem.\n");
     return EXIT_FAILURE;
   }
 
-
-    if (sem_unlink(SEM_FREE_NAME) == -1) {
+  if (sem_unlink(SEM_FREE_NAME) == -1) {
     fprintf(stderr, "Could not unlink (delete) free_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_unlink(SEM_USED_NAME) == -1) {
+  if (sem_unlink(SEM_USED_NAME) == -1) {
     fprintf(stderr, "Could not unlink (delete) used_sem.\n");
     return EXIT_FAILURE;
   }
-    if (sem_unlink(SEM_WRITE_NAME) == -1) {
+  if (sem_unlink(SEM_WRITE_NAME) == -1) {
     fprintf(stderr, "Could not unlink (delete) write_sem.\n");
     return EXIT_FAILURE;
   }

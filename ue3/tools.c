@@ -5,7 +5,7 @@
 /** @addtogroup Tools
  * @brief Provides Utility Tools
  *
- * @details 
+ * @details
  *
  * @author Markus Krainz
  * @date January 2019
@@ -13,6 +13,5 @@
  */
 
 #include "tools.h"
-
 
 /** @}*/

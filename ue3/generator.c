@@ -25,7 +25,13 @@
  * @{
  */
 
+static char *program_name;
+
 static volatile sig_atomic_t quit = 0;
+
+static int shmfd;
+static Myshm_t *myshm;
+static sem_t *free_sem, *used_sem, *write_sem;
 
 /**
  * @brief Reacts to SIGINT and SIGTERM by setting quit to 1
@@ -50,25 +56,55 @@ static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Resul
       // harmless interrupt. Throw away current result and continue.
       return;
     }
-    fprintf(stderr, "Fatal Error with sem_wait.");
+    fprintf(stderr, "%s %d: ERROR with sem_wait.\n", program_name, (int)getpid());
     exit(EXIT_FAILURE);
   }
   shm->buf[shm->write_pos] = *val;
   // space is used by written data
   if (sem_post(used_sem) == -1) {
-    fprintf(stderr, "Fatal Error with sem_post.");
+    fprintf(stderr, "%s %d: ERROR with sem_post.\n", program_name, (int)getpid());
     exit(EXIT_FAILURE);
   }
   shm->write_pos = (shm->write_pos + 1) % BUF_LEN;
 }
 
+static void free_resources(void) {
+  if (munmap(myshm, sizeof(Myshm_t)) == -1) {
+    fprintf(stderr, "%s %d: Could not unmap shm\n", program_name, (int)getpid());
+  }
+
+  if (shmfd != -1) {
+    if (close(shmfd) == -1) {
+      fprintf(stderr, "%s %d: Could not close shm file\n", program_name, (int)getpid());
+    }
+  }
+
+  if (sem_close(free_sem) == -1) {
+    fprintf(stderr, "%s %d: Could not close free_sem.\n", program_name, (int)getpid());
+  }
+  if (sem_close(used_sem) == -1) {
+    fprintf(stderr, "%s %d: Could not close used_sem.\n", program_name, (int)getpid());
+  }
+  if (sem_close(write_sem) == -1) {
+    fprintf(stderr, "%s %d: Could not close write_sem.\n", program_name, (int)getpid());
+  }
+
+  fprintf(stderr, "%s %d: Finished atexit() handler \n", program_name, (int)getpid());
+}
+
 int main(int argc, char *argv[]) {
+  program_name = argv[0];
 
   const int edge_count = argc - 1;
   fprintf(stderr, "edges: %d\n", edge_count);
 
   if (argc == 1) {
-    fprintf(stderr, "%s %d: ERROR Provide at least one edge. \n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR Provide at least one edge. \n", program_name, (int)getpid());
+    return EXIT_FAILURE;
+  }
+
+  if (atexit(free_resources) != 0) {
+    fprintf(stderr, "%s %d: ERROR Could register atexit handler.\n", program_name, (int)getpid());
     return EXIT_FAILURE;
   }
 
@@ -80,26 +116,26 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < edge_count; i++) {
     char *a_str = strtok(argv[i + 1], "-");
     if (a_str == NULL) {
-      fprintf(stderr, "%s %d: ERROR Invalid edge, no part a (did you pass \"\"?) \n", argv[0],
+      fprintf(stderr, "%s %d: ERROR Invalid edge, no part a (did you pass \"\"?) \n", program_name,
               (int)getpid());
       return EXIT_FAILURE;
     }
     char *b_str = strtok(NULL, "-");
     if (b_str == NULL) {
-      fprintf(stderr, "%s %d: ERROR Invalid edge, no part b \n", argv[0], (int)getpid());
+      fprintf(stderr, "%s %d: ERROR Invalid edge, no part b \n", program_name, (int)getpid());
       return EXIT_FAILURE;
     }
 
     char *endPointer;
     long a = strtol(a_str, &endPointer, 0);
     if (*endPointer != '\0') {
-      fprintf(stderr, "%s %d: ERROR Could not parse edge part a\n", argv[0], (int)getpid());
+      fprintf(stderr, "%s %d: ERROR Could not parse edge part a\n", program_name, (int)getpid());
       return EXIT_FAILURE;
     }
 
     long b = strtol(b_str, &endPointer, 0);
     if (*endPointer != '\0') {
-      fprintf(stderr, "%s %d: ERROR Could not parse edge part b\n", argv[0], (int)getpid());
+      fprintf(stderr, "%s %d: ERROR Could not parse edge part b\n", program_name, (int)getpid());
       return EXIT_FAILURE;
     }
 
@@ -122,38 +158,38 @@ int main(int argc, char *argv[]) {
   srand(time(NULL));
 
   // open the shared memory object:
-  int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
+  shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1) {
-    fprintf(stderr, "%s %d: ERROR No shm. (Start supervisor first!)\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR No shm. (Start supervisor first!)\n", program_name,
+            (int)getpid());
     return EXIT_FAILURE;
   }
 
   // map shared memory object:
-  Myshm_t *myshm;
   myshm = mmap(NULL, sizeof(Myshm_t), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
   if (myshm == MAP_FAILED) {
-    fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", program_name, (int)getpid());
     return EXIT_FAILURE;
   }
 
   // tracks free space, initialized to BUF_LEN
-  sem_t *free_sem = sem_open(SEM_FREE_NAME, /*flags*/ 0);
+  free_sem = sem_open(SEM_FREE_NAME, /*flags*/ 0);
   if (free_sem == SEM_FAILED) {
-    fprintf(stderr, "%s %d: ERROR Could not open SEM_FREE_NAME\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_FREE_NAME\n", program_name, (int)getpid());
     printf("%s\n", strerror(errno));
     return EXIT_FAILURE;
   }
   // tracks used space, initialized to 0
-  sem_t *used_sem = sem_open(SEM_USED_NAME, 0);
+  used_sem = sem_open(SEM_USED_NAME, 0);
   if (used_sem == SEM_FAILED) {
-    fprintf(stderr, "%s %d: ERROR Could not open SEM_USED_NAME\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_USED_NAME\n", program_name, (int)getpid());
     printf("%s\n", strerror(errno));
     return EXIT_FAILURE;
   }
   // assures at most 1 writer
-  sem_t *write_sem = sem_open(SEM_WRITE_NAME, 0);
+  write_sem = sem_open(SEM_WRITE_NAME, 0);
   if (write_sem == SEM_FAILED) {
-    fprintf(stderr, "%s %d: ERROR Could not open SEM_WRITE_NAME\n", argv[0], (int)getpid());
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_WRITE_NAME\n", program_name, (int)getpid());
     printf("%s\n", strerror(errno));
     return EXIT_FAILURE;
   }
@@ -217,7 +253,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (myshm->shutdown) {
-      printf("%s %d: shutting down because of shm signal.\n", argv[0], (int)getpid());
+      printf("%s %d: shutting down because of shm signal.\n", program_name, (int)getpid());
       quit = true;
       break;
     }
@@ -228,43 +264,20 @@ int main(int argc, char *argv[]) {
           // harmless interrupt. Throw away current result and continue.
           continue;
         }
-        fprintf(stderr, "%s %d: ERROR with sem_wait.\n", argv[0], (int)getpid());
+        fprintf(stderr, "%s %d: ERROR with sem_wait.\n", program_name, (int)getpid());
         return (EXIT_FAILURE);
       }
 
       circ_buf_write(myshm, free_sem, used_sem, &report);
 
       if (sem_post(write_sem) == -1) {
-        fprintf(stderr, "%s %d: ERROR with sem_post.\n", argv[0], (int)getpid());
+        fprintf(stderr, "%s %d: ERROR with sem_post.\n", program_name, (int)getpid());
         return (EXIT_FAILURE);
       }
       // we could sleep here for 500ms with usleep(500000); e.g. for debugging
     }
 
   } while (!quit);
-
-  if (munmap(myshm, sizeof(Myshm_t)) == -1) {
-    fprintf(stderr, "%s %d: ERROR Could not unmap shm\n", argv[0], (int)getpid());
-    return EXIT_FAILURE;
-  }
-
-  if (close(shmfd) == -1) {
-    fprintf(stderr, "%s %d: ERROR Could not close shm file\n", argv[0], (int)getpid());
-    return EXIT_FAILURE;
-  }
-
-  if (sem_close(free_sem) == -1) {
-    fprintf(stderr, "%s %d: ERROR Could not close free_sem.\n", argv[0], (int)getpid());
-    return EXIT_FAILURE;
-  }
-  if (sem_close(used_sem) == -1) {
-    fprintf(stderr, "%s %d: ERROR Could not close used_sem.\n", argv[0], (int)getpid());
-    return EXIT_FAILURE;
-  }
-  if (sem_close(write_sem) == -1) {
-    fprintf(stderr, "%s %d: ERROR Could not close write_sem.\n", argv[0], (int)getpid());
-    return EXIT_FAILURE;
-  }
 
   return EXIT_SUCCESS;
 }

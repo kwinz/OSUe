@@ -32,7 +32,7 @@ typedef struct myshm {
   Result_t buf[BUF_LEN];
   int read_pos;
   int write_pos;
-  bool shutdown;
+  volatile bool shutdown;
 } Myshm_t;
 
 #define DEBUG_OUTPUT false

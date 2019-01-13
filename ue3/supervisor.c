@@ -39,11 +39,12 @@ int main(int argc, char *argv[]) {
   // create and/or open the shared memory object:
   int shmfd = shm_open(SHM_NAME, O_RDWR | O_CREAT, 0600);
   if (shmfd == -1) {
+    fprintf(stderr, "%s %d: ERROR Could not open shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   // set the size of the shared memory:
   if (ftruncate(shmfd, sizeof(Myshm_t)) < 0) {
-    fprintf(stderr, "Could not truncate (resize) shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not truncate (resize) shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   // map shared memory object:
@@ -51,7 +52,7 @@ int main(int argc, char *argv[]) {
   myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 
   if (myshm == MAP_FAILED) {
-    fprintf(stderr, "Could not memory map shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
@@ -93,44 +94,44 @@ int main(int argc, char *argv[]) {
   myshm->shutdown = true;
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
-    fprintf(stderr, "Could not unmap shm\n");
+    fprintf(stderr, "%s %d: ERROR Could not unmap shm\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   if (close(shmfd) == -1) {
-    fprintf(stderr, "Could not close shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not close shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   // remove shared memory object:
   if (shm_unlink(SHM_NAME) == -1) {
-    fprintf(stderr, "Could not unlink (remove) shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not unlink (remove) shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   if (sem_close(free_sem) == -1) {
-    fprintf(stderr, "Could not close free_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close free_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_close(used_sem) == -1) {
-    fprintf(stderr, "Could not close used_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close used_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_close(write_sem) == -1) {
-    fprintf(stderr, "Could not close write_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close write_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   if (sem_unlink(SEM_FREE_NAME) == -1) {
-    fprintf(stderr, "Could not unlink (delete) free_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not unlink (delete) free_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_unlink(SEM_USED_NAME) == -1) {
-    fprintf(stderr, "Could not unlink (delete) used_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not unlink (delete) used_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_unlink(SEM_WRITE_NAME) == -1) {
-    fprintf(stderr, "Could not unlink (delete) write_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not unlink (delete) write_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 }

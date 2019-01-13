@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "edges: %d\n", edge_count);
 
   if (argc == 1) {
-    fprintf(stderr, "Provide at least one edge. \n");
+    fprintf(stderr, "%s %d: ERROR Provide at least one edge. \n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
@@ -43,25 +43,26 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < edge_count; i++) {
     char *a_str = strtok(argv[i + 1], "-");
     if (a_str == NULL) {
-      fprintf(stderr, "Invalid edge, no part a (did you pass \"\"?) \n");
+      fprintf(stderr, "%s %d: ERROR Invalid edge, no part a (did you pass \"\"?) \n", argv[0],
+              (int)getpid());
       return EXIT_FAILURE;
     }
     char *b_str = strtok(NULL, "-");
     if (b_str == NULL) {
-      fprintf(stderr, "Invalid edge, no part b \n");
+      fprintf(stderr, "%s %d: ERROR Invalid edge, no part b \n", argv[0], (int)getpid());
       return EXIT_FAILURE;
     }
 
     char *endPointer;
     long a = strtol(a_str, &endPointer, 0);
     if (*endPointer != '\0') {
-      fprintf(stderr, "Could not parse edge part a\n");
+      fprintf(stderr, "%s %d: ERROR Could not parse edge part a\n", argv[0], (int)getpid());
       return EXIT_FAILURE;
     }
 
     long b = strtol(b_str, &endPointer, 0);
     if (*endPointer != '\0') {
-      fprintf(stderr, "Could not parse edge part b\n");
+      fprintf(stderr, "%s %d: ERROR Could not parse edge part b\n", argv[0], (int)getpid());
       return EXIT_FAILURE;
     }
 
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]) {
   // open the shared memory object:
   int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
   if (shmfd == -1) {
-    fprintf(stderr, "ERROR No shm. (Start supervisor first!)\n");
+    fprintf(stderr, "%s %d: ERROR No shm. (Start supervisor first!)\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
@@ -95,7 +96,7 @@ int main(int argc, char *argv[]) {
   myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
 
   if (myshm == MAP_FAILED) {
-    fprintf(stderr, "Could not memory map shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
@@ -164,7 +165,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (myshm->shutdown) {
-      printf("shutting down beacuse of shm signal: %s\n", argv[0]);
+      printf("%s %d: shutting down beacuse of shm signal.", argv[0], (int)getpid());
       quit = true;
       break;
     }
@@ -181,25 +182,25 @@ int main(int argc, char *argv[]) {
   } while (!quit);
 
   if (munmap(myshm, sizeof(*myshm)) == -1) {
-    fprintf(stderr, "Could not unmap shm\n");
+    fprintf(stderr, "%s %d: ERROR Could not unmap shm\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   if (close(shmfd) == -1) {
-    fprintf(stderr, "Could not close shm file\n");
+    fprintf(stderr, "%s %d: ERROR Could not close shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 
   if (sem_close(free_sem) == -1) {
-    fprintf(stderr, "Could not close free_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close free_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_close(used_sem) == -1) {
-    fprintf(stderr, "Could not close used_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close used_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
   if (sem_close(write_sem) == -1) {
-    fprintf(stderr, "Could not close write_sem.\n");
+    fprintf(stderr, "%s %d: ERROR Could not close write_sem.\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
   }
 

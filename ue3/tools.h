@@ -34,3 +34,5 @@ typedef struct myshm {
   int write_pos;
   bool shutdown;
 } Myshm_t;
+
+#define DEBUG_OUTPUT false

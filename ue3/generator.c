@@ -110,6 +110,7 @@ int main(int argc, char *argv[]) {
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0
     sa.sa_handler = &handle_signal;
     sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
   }
 
   do {

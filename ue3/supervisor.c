@@ -54,14 +54,12 @@ int main(int argc, char *argv[]) {
   // assures at most 1 writer
   sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
 
-  // struct sigaction sa = {.sa_hander = handle_signal};
-  // sigaction(SIGINT, &sa, NULL);
-
   {
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa)); // initialize sa to 0
     sa.sa_handler = &handle_signal;
     sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
   }
 
   Result_t result;

@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "tools.h"
+
 #define SHM_NAME "/myshm"
 #define MAX_DATA (50)
 struct myshm {

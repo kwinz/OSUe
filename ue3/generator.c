@@ -7,11 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-#define MAX_REPORTED 4
-
-typedef struct Edge {
-  int a, b;
-} Edge_t;
+#include "tools.h"
 
 int main(int argc, char *argv[]) {
 

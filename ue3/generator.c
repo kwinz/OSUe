@@ -14,6 +14,7 @@ static volatile sig_atomic_t quit = 0;
 
 static void handle_signal(int signal) { quit = 1; }
 
+// taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
 static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, sem_t *write_sem,
                            Result_t val) {
   // writing requires free space
@@ -122,11 +123,13 @@ int main(int argc, char *argv[]) {
       vertices[j] = temp;
     }
 
-    // fprintf(stderr, "shuffled: ");
-    // for (int i = 0; i <= max_vert; ++i) {
-    //  fprintf(stderr, "%d,", vertices[i]);
-    //}
-    // fprintf(stderr, "\n");
+    if (DEBUG_OUTPUT) {
+      fprintf(stderr, "shuffled: ");
+      for (int i = 0; i <= max_vert; ++i) {
+        fprintf(stderr, "%d,", vertices[i]);
+      }
+      fprintf(stderr, "\n");
+    }
 
     bool max_exceeded = false;
     report.size = 0;
@@ -134,7 +137,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0, reported = 0; i < edge_count && !max_exceeded; ++i) {
       for (int j = 0; j <= max_vert; ++j) {
         if (graph[i].a == vertices[j]) {
-          // fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
+          if (DEBUG_OUTPUT) {
+            fprintf(stderr, "-[%d,%d]\n", graph[i].a, graph[i].b);
+          }
           break;
         }
         if (graph[i].b == vertices[j]) {
@@ -142,7 +147,9 @@ int main(int argc, char *argv[]) {
             max_exceeded = true;
             break;
           }
-          // fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
+          if (DEBUG_OUTPUT) {
+            fprintf(stderr, "+[%d,%d]\n", graph[i].a, graph[i].b);
+          }
           report.arc_set[reported] = graph[i];
           ++reported;
           ++report.size;
@@ -152,7 +159,9 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+    if (DEBUG_OUTPUT) {
+      fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+    }
 
     if (myshm->shutdown) {
       printf("shutting down beacuse of shm signal: %s\n", argv[0]);
@@ -163,11 +172,9 @@ int main(int argc, char *argv[]) {
     if (!max_exceeded) {
 
       sem_wait(write_sem);
-      // printf("critical: %s\n", argv[0]);
-
       circ_buf_write(myshm, free_sem, used_sem, write_sem, report);
 
-      // usleep(500000);
+      // we could sleep here for 500ms with usleep(500000); e.g. for debugging
       sem_post(write_sem);
     }
 

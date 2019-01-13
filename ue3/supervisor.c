@@ -9,8 +9,9 @@ static volatile sig_atomic_t quit = 0;
 
 static void handle_signal(int signal) { quit = 1; }
 
-// taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
-static Result_t circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem) {
+static bool circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result_t *best_result) {
+  bool newBest = false;
+
   // reading requires data (used space)
   if (sem_wait(used_sem) == -1) {
     // FIXME: error!
@@ -18,11 +19,19 @@ static Result_t circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem) {
     // continue;
   }
 
-  Result_t val = shm->buf[shm->read_pos];
+  const Result_t *result = &(shm->buf[shm->read_pos]);
+  if (result->size < best_result->size) {
+    memcpy(best_result, result, sizeof(Result_t));
+    newBest = true;
+  }
   // reading frees up space
   sem_post(free_sem);
   shm->read_pos = (shm->read_pos + 1) % BUF_LEN;
-  return val;
+
+  if (DEBUG_OUTPUT) {
+    fprintf(stderr, ".");
+  }
+  return newBest;
 }
 
 int main(int argc, char *argv[]) {
@@ -62,19 +71,15 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa, NULL);
   }
 
-  Result_t result;
   Result_t best_result;
   best_result.size = MAX_REPORTED + 1;
+
   do {
     // blocking read
-    // fprintf(stderr, "Waiting for result!\n");
-    result = circ_buf_read(myshm, free_sem, used_sem);
-    // fprintf(stderr, "Got a result with %zu vertices!\n", result.size);
-    // fprintf(stderr, ".");
+    const bool newBest = circ_buf_read(myshm, free_sem, used_sem, &best_result);
 
-    if (result.size < best_result.size) {
-      memcpy(&best_result, &result, sizeof(Result_t));
-      fprintf(stdout, "Solution with %zu edges:", best_result.size);
+    if (newBest) {
+      fprintf(stdout, "Solution with %zu edges: ", best_result.size);
       for (int i = 0; i < best_result.size; ++i) {
         fprintf(stdout, "%d-%d ", best_result.arc_set[i].a, best_result.arc_set[i].b);
       }

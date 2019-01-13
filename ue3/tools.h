@@ -2,12 +2,13 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <semaphore.h>
+#include <unistd.h>
 #include <stdio.h>
+#include <semaphore.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
+
 
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)

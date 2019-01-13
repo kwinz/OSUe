@@ -9,7 +9,11 @@
 
 #include "tools.h"
 
-void circ_buf_write(Myshm_t* shm, sem_t *free_sem, sem_t *used_sem,sem_t *write_sem, Result_t val) {
+static volatile sig_atomic_t quit = 0;
+
+static void handle_signal(int signal) { quit = 1; }
+
+static void circ_buf_write(Myshm_t* shm, sem_t *free_sem, sem_t *used_sem,sem_t *write_sem, Result_t val) {
   // writing requires free space
   sem_wait(free_sem);
   shm->buf[shm->write_pos] = val;
@@ -76,7 +80,36 @@ int main(int argc, char *argv[]) {
   Edge_t report[MAX_REPORTED];
   srand(time(NULL));
 
-  // shuffle
+
+  // open the shared memory object:
+  int shmfd = shm_open(SHM_NAME, O_RDWR, 0600);
+  if (shmfd == -1) {
+    fprintf(stderr, "ERROR No shm. (Start supervisor first!)\n");
+    return EXIT_FAILURE;
+  }
+
+  // map shared memory object:
+  Myshm_t *myshm;
+  myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
+
+  if (myshm == MAP_FAILED) {
+    fprintf(stderr, "Could not memory map shm file\n");
+    return EXIT_FAILURE;
+  }
+
+      // tracks free space, initialized to BUF_LEN
+    sem_t *free_sem = sem_open(SEM_FREE_NAME, /*flags*/ 0);
+    // tracks used space, initialized to 0
+    sem_t *used_sem = sem_open(SEM_USED_NAME,0);
+    // assures at most 1 writer
+    sem_t *write_sem = sem_open(SEM_WRITE_NAME, 0);
+
+    
+    sem_wait(s2);
+    printf("critical: %s: i = %d\n", argv[0], i);
+    
+    do{
+// shuffle
   for (int i = 0; i < max_vert - 1; ++i) {
     const int j = i + rand() % (max_vert + 1 - i);
     const int temp = vertices[i];
@@ -113,6 +146,35 @@ int main(int argc, char *argv[]) {
   }
 
   fprintf(stderr, "exceeded:%s\n", max_exceeded ? "true" : "false");
+
+    } while(true);
+
+    sem_post(s1);
+
+
+  if (munmap(myshm, sizeof(*myshm)) == -1) {
+    fprintf(stderr, "Could not unmap shm\n");
+    return EXIT_FAILURE;
+  }
+
+  if (close(shmfd) == -1) {
+    fprintf(stderr, "Could not close shm file\n");
+    return EXIT_FAILURE;
+  }
+
+  if (sem_close(free_sem) == -1) {
+    fprintf(stderr, "Could not close free_sem.\n");
+    return EXIT_FAILURE;
+  }
+    if (sem_close(used_sem) == -1) {
+    fprintf(stderr, "Could not close used_sem.\n");
+    return EXIT_FAILURE;
+  }
+    if (sem_close(write_sem) == -1) {
+    fprintf(stderr, "Could not close write_sem.\n");
+    return EXIT_FAILURE;
+  }
+
 
   return EXIT_SUCCESS;
 }

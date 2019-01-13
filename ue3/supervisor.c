@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -79,7 +80,6 @@ int main(int argc, char *argv[]) {
   // map shared memory object:
   Myshm_t *myshm;
   myshm = mmap(NULL, sizeof(*myshm), PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
-
   if (myshm == MAP_FAILED) {
     fprintf(stderr, "%s %d: ERROR Could not memory map shm file\n", argv[0], (int)getpid());
     return EXIT_FAILURE;
@@ -88,10 +88,25 @@ int main(int argc, char *argv[]) {
   // FIXME sem_open
   // tracks free space, initialized to BUF_LEN
   sem_t *free_sem = sem_open(SEM_FREE_NAME, O_CREAT | O_EXCL, 0600, BUF_LEN);
+  if (free_sem == SEM_FAILED) {
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_FREE_NAME\n", argv[0], (int)getpid());
+    printf("%s\n", strerror(errno));
+    return EXIT_FAILURE;
+  }
   // tracks used space, initialized to 0
   sem_t *used_sem = sem_open(SEM_USED_NAME, O_CREAT | O_EXCL, 0600, 0);
+  if (used_sem == SEM_FAILED) {
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_USED_NAME\n", argv[0], (int)getpid());
+    printf("%s\n", strerror(errno));
+    return EXIT_FAILURE;
+  }
   // assures at most 1 writer
   sem_t *write_sem = sem_open(SEM_WRITE_NAME, O_CREAT | O_EXCL, 0600, 1);
+  if (write_sem == SEM_FAILED) {
+    fprintf(stderr, "%s %d: ERROR Could not open SEM_WRITE_NAME\n", argv[0], (int)getpid());
+    printf("%s\n", strerror(errno));
+    return EXIT_FAILURE;
+  }
 
   {
     struct sigaction sa;

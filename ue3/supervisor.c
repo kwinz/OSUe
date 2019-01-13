@@ -76,6 +76,11 @@ static bool circ_buf_read(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result
   return newBest;
 }
 
+/**
+ * @brief Frees any resource of the programm, that might have been opened.
+ *
+ * @details Unmaps, frees, deletes resources atexit and writes error messages to stderr.
+ */
 static void free_resources(void) {
   if (munmap(myshm, sizeof(Myshm_t)) == -1) {
     fprintf(stderr, "%s %d: Could not unmap shm\n", program_name, (int)getpid());

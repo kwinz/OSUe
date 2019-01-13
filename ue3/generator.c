@@ -16,10 +16,10 @@ static void handle_signal(int signal) { quit = 1; }
 
 // taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
 static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, sem_t *write_sem,
-                           Result_t val) {
+                           Result_t *val) {
   // writing requires free space
   sem_wait(free_sem);
-  shm->buf[shm->write_pos] = val;
+  shm->buf[shm->write_pos] = *val;
   // space is used by written data
   sem_post(used_sem);
   shm->write_pos = (shm->write_pos + 1) % BUF_LEN;
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
     if (!max_exceeded) {
 
       sem_wait(write_sem);
-      circ_buf_write(myshm, free_sem, used_sem, write_sem, report);
+      circ_buf_write(myshm, free_sem, used_sem, write_sem, &report);
 
       // we could sleep here for 500ms with usleep(500000); e.g. for debugging
       sem_post(write_sem);

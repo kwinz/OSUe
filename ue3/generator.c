@@ -9,6 +9,15 @@
 
 #include "tools.h"
 
+void circ_buf_write(Myshm_t* shm, sem_t *free_sem, sem_t *used_sem,sem_t *write_sem, Result_t val) {
+  // writing requires free space
+  sem_wait(free_sem);
+  shm->buf[shm->write_pos] = val;
+  // space is used by written data
+  sem_post(used_sem);
+  shm->write_pos = (shm->write_pos + 1) % BUF_LEN;
+}
+
 int main(int argc, char *argv[]) {
 
   const int edge_count = argc - 1;

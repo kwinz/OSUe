@@ -5,8 +5,6 @@
 /** @addtogroup Tools
  * @brief Provides Utility Tools
  *
- * @details
- *
  * @author Markus Krainz
  * @date January 2019
  *  @{

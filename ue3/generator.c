@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (myshm->shutdown) {
-      printf("%s %d: shutting down beacuse of shm signal.", argv[0], (int)getpid());
+      printf("%s %d: shutting down because of shm signal.\n", argv[0], (int)getpid());
       quit = true;
       break;
     }

@@ -10,13 +10,39 @@
 
 #include "tools.h"
 
+/** @defgroup generator */
+
+/** @addtogroup generator
+ * @brief Generates Feedback arc set
+ *
+ * @details Parses a directed graph from command line. Then uses a random algorithm to find
+ * feedback arc sets. Then the arc sets smaller than MAX_REPORTED are shared with the supervisor
+ * programm. Taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
+ *
+ * @author Markus Krainz
+ * @date January 2019
+ * @{
+ */
+
 static volatile sig_atomic_t quit = 0;
 
+/**
+ * @brief Reacts to SIGINT and SIGTERM by setting quit to 1
+ */
 static void handle_signal(int signal) { quit = 1; }
 
-// taken heavy inspiration from "Exercise 3: Shared Memory [..]" slides Platzer (2018)
-static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, sem_t *write_sem,
-                           Result_t *val) {
+/**
+ * @brief Writes a new feedback arc set
+ *
+ * @details Writes the arc set result to the ringbuffer in shm, wusing the semaphores passed.
+ * Blocks until the buffer is free.
+ *
+ * @param shm Pointer to shared memory
+ * @param free_sem Pointer to the semaphore guarding the free space
+ * @param used_sem Pointer to the semaphore guarding the used space
+ * @param val points to the Result_t that should be written into shared memory
+ */
+static void circ_buf_write(Myshm_t *shm, sem_t *free_sem, sem_t *used_sem, Result_t *val) {
   // writing requires free space
   sem_wait(free_sem);
   shm->buf[shm->write_pos] = *val;
@@ -173,10 +199,9 @@ int main(int argc, char *argv[]) {
     if (!max_exceeded) {
 
       sem_wait(write_sem);
-      circ_buf_write(myshm, free_sem, used_sem, write_sem, &report);
-
-      // we could sleep here for 500ms with usleep(500000); e.g. for debugging
+      circ_buf_write(myshm, free_sem, used_sem, &report);
       sem_post(write_sem);
+      // we could sleep here for 500ms with usleep(500000); e.g. for debugging
     }
 
   } while (!quit);
@@ -206,3 +231,5 @@ int main(int argc, char *argv[]) {
 
   return EXIT_SUCCESS;
 }
+
+/** @}*/

@@ -72,15 +72,15 @@ int main(int argc, char *argv[]) {
     // fprintf(stderr, "Waiting for result!\n");
     result = circ_buf_read(myshm, free_sem, used_sem);
     // fprintf(stderr, "Got a result with %zu vertices!\n", result.size);
-    //fprintf(stderr, ".");
+    // fprintf(stderr, ".");
 
     if (result.size < best_result.size) {
       memcpy(&best_result, &result, sizeof(Result_t));
-      fprintf(stderr, "Solution with %zu edges:", best_result.size);
+      fprintf(stdout, "Solution with %zu edges:", best_result.size);
       for (int i = 0; i < best_result.size; ++i) {
-        fprintf(stderr, "%d-%d ", best_result.arc_set[i].a, best_result.arc_set[i].b);
+        fprintf(stdout, "%d-%d ", best_result.arc_set[i].a, best_result.arc_set[i].b);
       }
-      fprintf(stderr, "\n");
+      fprintf(stdout, "\n");
     }
 
   } while (!quit && best_result.size != 0);
